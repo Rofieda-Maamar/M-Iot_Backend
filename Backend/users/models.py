@@ -1,25 +1,26 @@
 # users/models.py
 from django.db import models
+
 from django.contrib.auth.models import AbstractUser
+from tenants.models import Client
+
 
 class User(AbstractUser):
-    telephone    = models.CharField(max_length=20, blank=True, null=True)
-    logged_in    = models.DateTimeField(blank=True, null=True)
-    logged_out   = models.DateTimeField(blank=True, null=True)
-    created_at   = models.DateTimeField(auto_now_add=True)
-    updated_at   = models.DateTimeField(auto_now=True)
+    telephone = models.CharField(max_length=20, blank=True, null=True)
+    logged_in = models.CharField(max_length=20, blank=True, null=True)
+    logged_out = models.CharField(max_length=20, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)  
+    updated_at = models.DateTimeField(auto_now=True)
 
+class Admin(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    nom = models.CharField(max_length=50)
+    prenom = models.CharField(max_length=50)
+    role = models.CharField(max_length=50)
+    status = models.CharField(max_length=20, blank=True, null=True) 
 
-
-
-class AdminProfile(models.Model):
-    user = models.OneToOneField(
-        'users.User',
-        on_delete=models.CASCADE,
-        related_name='admin_profile'
-    )
-    nom   = models.CharField(max_length=50)
-    prenom= models.CharField(max_length=50)
-
-    def __str__(self):
-        return f"{self.nom} {self.prenom}"
+class ClientUser(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    client = models.ForeignKey("tenants.Client", on_delete=models.CASCADE)
+    status = models.CharField(max_length=20)
+    role = models.CharField(max_length=50)
