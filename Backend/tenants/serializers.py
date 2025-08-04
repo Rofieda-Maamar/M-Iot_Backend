@@ -8,17 +8,17 @@ import re
 User = get_user_model()
 
 class AddClientWithUserSerializer(serializers.ModelSerializer):
-    # email , password , and username to create the user will be associated with the client
+    # email , password  to create the user will be associated with the client
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    username = serializers.CharField()
+  #  username = serializers.CharField()
 
     class Meta:
         model = Client
         fields = [
-            'email', 'username', 'password',
+            'email', 'password',
             'nom_entreprise', 'adresse', 'latitude',
-            'longitude', 'industrie', 'nom_resp', 'prenom_resp', 'etat'
+            'longitude', 'industrie', 'nom_resp', 'prenom_resp', 'status'
         ]
 
     @staticmethod # the function don't depend to the class , i can call it everywhere 
@@ -31,14 +31,14 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         email = validated_data.pop('email')
         password = validated_data.pop('password')
-        username = validated_data.pop('username')
+        #username = validated_data.pop('username')
         nom_entreprise = validated_data.get('nom_entreprise')
 
         # Generate schema_name from company name
         schema_name = self.generate_schema_name(nom_entreprise)
 
         # Create user instance
-        user = User.objects.create_user(email=email, username=username, password=password)
+        user = User.objects.create_user(email=email, password=password)
 
         # Create tenant (client)
         client = Client.objects.create(

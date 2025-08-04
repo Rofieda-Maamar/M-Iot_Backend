@@ -27,7 +27,6 @@ class MaintenanceAdminPredictive(models.Model):
 class MaintenanceSensor(models.Model):
     maintenance   = models.ForeignKey(MaintenanceClient, on_delete=models.CASCADE)
     machine       = models.ForeignKey('machines.Machine', on_delete=models.CASCADE)
-    # composite primary key not directly supported; use unique_together:
     class Meta:
         unique_together = ('maintenance', 'machine')
 

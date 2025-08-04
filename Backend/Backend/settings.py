@@ -30,10 +30,7 @@ ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 TENANT_MODEL = "tenants.Client"
 TENANT_DOMAIN_MODEL = "tenants.Domain"
-AUTH_USER_MODEL = ""
-
-# Application definition
-
+AUTH_USER_MODEL = "users.User"
 
 SHARED_APPS = [
     "django_tenants",  # required      
@@ -64,15 +61,15 @@ TENANT_APPS = [
     "reports",
     "sites",
     "tickets",
+    "ClientUsers",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
 
-
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
-    ],
+    ], 
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',
@@ -124,10 +121,10 @@ WSGI_APPLICATION = 'Backend.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": "miotbdd",
-        "USER": "miotbdd",
-        "PASSWORD": "lg3yFaCLrkyxp2XmsLUnlvKHUzlobTiC",
-        "HOST": "dpg-d27qvsu3jp1c73flc95g-a.oregon-postgres.render.com",
+        "NAME": "miot_z6i3",
+        "USER": "rofieda",
+        "PASSWORD": "hI9bZhRSuGlFQvK0FsfrghlmPlRLR308",
+        "HOST": "dpg-d28fhf15pdvs73di3nt0-a.oregon-postgres.render.com",
         "PORT": "5432",
     }
 }

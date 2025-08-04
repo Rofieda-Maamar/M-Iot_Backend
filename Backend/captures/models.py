@@ -2,29 +2,36 @@
 from django.db import models
 
 class CaptureSite(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'active'),
+        ('inactive', 'inactive'),
+    ]
     site                   = models.ForeignKey('sites.Site', on_delete=models.CASCADE, related_name='captures')
     num_serie              = models.CharField(max_length=100, unique=True)
-    status                 = models.CharField(max_length=20)
+    status                 = models.CharField(max_length=20 , choices=STATUS_CHOICES , default='active')
     date_install           = models.DateField()
     date_dernier_serveillance = models.DateField()
 
 
-
-class CaptureRFID(models.Model):
+class TagRfid(models.Model):
+    Type_choices = [
+        ('actif', 'Actif'),
+        ('passif', 'Passif'),
+    ]
     site                   = models.ForeignKey('sites.Site', on_delete=models.CASCADE, related_name='rfid_captures')
-    num_serie              = models.CharField(max_length=100)
-    status                 = models.CharField(max_length=20)
+    num_serie = models.CharField(max_length=100)
+    status  = models.CharField(max_length=20 , choices=Type_choices, default='actif')
+    type    = models.CharField(max_length=20)
     date_install           = models.DateField()
     date_dernier_serveillance = models.DateField()
-
 
 
 class ObjectTracking(models.Model):
     site            = models.ForeignKey('sites.Site', on_delete=models.CASCADE, related_name='object_trackings')
-    capture_rfid    = models.ForeignKey(CaptureRFID, on_delete=models.CASCADE, related_name='object_trackings')
+    capture_rfid    = models.ForeignKey(TagRfid, on_delete=models.CASCADE, related_name='object_trackings')
     categorie       = models.CharField(max_length=50)
     dernier_update  = models.DateTimeField()
-    etat            = models.CharField(max_length=20)
+    status            = models.CharField(max_length=20)
     latitude_depart = models.FloatField(blank=True, null=True)
     longitude_depart= models.FloatField(blank=True, null=True)
     latitude_actuel = models.FloatField(blank=True, null=True)
@@ -40,15 +47,11 @@ class MesureTracking(models.Model):
     heure            = models.TimeField()
     duree_passage    = models.DurationField()
 
- 
-
-
 
 class TypeParametre(models.Model):
     nom        = models.CharField(max_length=50)
     unite      = models.CharField(max_length=20)
     valeur_max = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-
 
 
 class SiteParametre(models.Model):

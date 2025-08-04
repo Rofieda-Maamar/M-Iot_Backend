@@ -10,7 +10,7 @@ class RapportPlanification(models.Model):
     periodicite      = models.DecimalField(max_digits=10, decimal_places=2)
     date_dernier_envoi = models.DateField()
     heur_envoi       = models.TimeField()
-    etat             = models.CharField(max_length=20)
+    status             = models.CharField(max_length=20)
 
  
 

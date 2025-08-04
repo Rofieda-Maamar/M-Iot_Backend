@@ -4,8 +4,6 @@ class AlerteRule(models.Model):
     status         = models.CharField(max_length=20)
     designation    = models.CharField(max_length=100)
     type           = models.CharField(max_length=50)
-    # can be CaptureSite or CaptureMachine; you could use GenericForeignKey if needed
-    capture_site   = models.ForeignKey('captures.CaptureSite', on_delete=models.CASCADE, null=True, blank=True)
     capture_machine= models.ForeignKey('machines.CaptureMachine', on_delete=models.CASCADE, null=True, blank=True)
     intervalle_min = models.FloatField()
     intervalle_max = models.FloatField()
@@ -24,7 +22,6 @@ class AlerteRule(models.Model):
 
 
 class AlertLog(models.Model):
-    capture_site   = models.ForeignKey('captures.CaptureSite', on_delete=models.CASCADE, null=True, blank=True)
     capture_machine= models.ForeignKey('machines.CaptureMachine', on_delete=models.CASCADE, null=True, blank=True)
     nbr_email      = models.IntegerField(default=0)
     nbr_sms        = models.IntegerField(default=0)

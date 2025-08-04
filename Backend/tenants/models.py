@@ -17,7 +17,11 @@ class Client(TenantMixin): # inherit from
     industrie = models.CharField(max_length=100, blank=True, null=True)
     nom_resp = models.CharField(max_length=50, blank=True, null=True)
     prenom_resp = models.CharField(max_length=50, blank=True, null=True)
-    etat = models.CharField(max_length=50, blank=True, null=True)
+    status_choices = [ 
+        ('active','active'),
+        ('inactive','inactive')
+    ]
+    status = models.CharField(max_length=50, blank=True, null=True, choices=status_choices, default='active')
 
     auto_create_schema = True  # required for django-tenants
 

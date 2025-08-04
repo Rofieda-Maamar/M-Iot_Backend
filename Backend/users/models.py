@@ -3,24 +3,54 @@ from django.db import models
 
 from django.contrib.auth.models import AbstractUser
 from tenants.models import Client
+from django.contrib.auth.base_user import BaseUserManager
 
+
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("The Email field must be set")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        return self.create_user(email, password, **extra_fields)
 
 class User(AbstractUser):
+    username = None  # Remove the default username field
+    email = models.EmailField(unique=True) 
+    role = models.CharField(
+        max_length=20, 
+        choices=[('admin', 'admin'), ('Client', 'client'), ('userClient', 'userClient')],  # the user roles
+        default='admin'
+    )
     telephone = models.CharField(max_length=20, blank=True, null=True)
     logged_in = models.CharField(max_length=20, blank=True, null=True)
     logged_out = models.CharField(max_length=20, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)  
     updated_at = models.DateTimeField(auto_now=True)
 
+    USERNAME_FIELD = 'email'  # using the email on the authentication
+    REQUIRED_FIELDS = []
+    
+    objects = CustomUserManager()
+
+
+
 class Admin(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     nom = models.CharField(max_length=50)
     prenom = models.CharField(max_length=50)
     role = models.CharField(max_length=50)
-    status = models.CharField(max_length=20, blank=True, null=True) 
+    status_choices = [ 
+        ('active','active'),
+        ('inactive','inactive')
+    ]
+    status = models.CharField(max_length=20, blank=True, null=True, choices=status_choices, default='active') 
 
-class ClientUser(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    client = models.ForeignKey("tenants.Client", on_delete=models.CASCADE)
-    status = models.CharField(max_length=20)
-    role = models.CharField(max_length=50)
+
