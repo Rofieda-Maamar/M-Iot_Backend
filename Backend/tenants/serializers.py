@@ -67,7 +67,7 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
         send_mail(
             subject="Verify your email",
             message=f"Welcome to M-IOT!\nClick the link to verify your account:\n{verify_url}",
-            from_email=settings.DEFAULT_FROM_EMAIL,
+            from_email='M-IOT <maamarmira005@gmail.com>' ,
             recipient_list=[email],
             fail_silently=False,
         )

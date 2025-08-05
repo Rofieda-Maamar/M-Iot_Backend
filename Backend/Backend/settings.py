@@ -29,7 +29,7 @@ ENVIRONMENT = config('ENVIRONMENT', default='development')
 POSTGRES_LOCALLY = config('POSTGRES_LOCALLY', default=False, cast=bool)
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST= 'smtp.gmail.com'
 EMAIL_HOST_USER= config('EMAIL_ADDRESS')
 EMAIL_HOST_PASSWORD= config('EMAIL_HOST_PASSWORD')
@@ -51,6 +51,7 @@ SHARED_APPS = [
     'django.contrib.admin',
     "django.contrib.sessions",
     'django.contrib.messages' ,
+    'django.contrib.staticfiles',
     "tenants", 
     "users",
     'django_extensions',
