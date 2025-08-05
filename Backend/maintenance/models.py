@@ -1,36 +1,47 @@
 # maintenance/models.py
 from django.db import models
 
+from users.models import  Admin
+from machines.models import Machine 
+from machines.models import CaptureMachine
+from ClientUsers.models import ClientUser
+
 class MaintenanceClient(models.Model):
-    machine       = models.ForeignKey('machines.Machine', on_delete=models.CASCADE)
+    client = models.ForeignKey('ClientUsers.ClientUser', on_delete=models.CASCADE)
+    machine = models.ForeignKey('machines.Machine', on_delete=models.CASCADE)
     date_intervention = models.DateField()
-    type          = models.CharField(max_length=50)
-    resume        = models.TextField()
-    file          = models.FileField(upload_to='maintenance_client/', blank=True, null=True)
+    type = models.CharField(max_length=50)
+    resume = models.TextField()
 
 class MaintenanceClientPredictive(models.Model):
-    machine       = models.ForeignKey('machines.Machine', on_delete=models.CASCADE)
+    client = models.ForeignKey('ClientUsers.ClientUser', on_delete=models.CASCADE)
+    machine = models.ForeignKey('machines.Machine', on_delete=models.CASCADE)
     date_intervention = models.DateField()
-    detail        = models.TextField()
+    detail = models.TextField()
 
 class MaintenanceAdmin(models.Model):
+   
+    admin = models.ForeignKey(Admin, on_delete=models.CASCADE, related_name="maintenance_maintenanceprd_admins")
     capture_machine = models.ForeignKey('machines.CaptureMachine', on_delete=models.CASCADE)
     date_intervention = models.DateField()
-    type          = models.CharField(max_length=50)
-    resume        = models.TextField()
+    type = models.CharField(max_length=50)
+    resume = models.TextField()
 
 class MaintenanceAdminPredictive(models.Model):
+    admin = models.ForeignKey('users.Admin', on_delete=models.CASCADE)
+    admin = models.ForeignKey(Admin, on_delete=models.CASCADE, related_name="maintenance_maintenanceprd_admins")
     capture_machine = models.ForeignKey('machines.CaptureMachine', on_delete=models.CASCADE)
+    
     date_intervention = models.DateField()
-    detail        = models.TextField()
+    detail = models.TextField()
 
-class MaintenanceSensor(models.Model):
-    maintenance   = models.ForeignKey(MaintenanceClient, on_delete=models.CASCADE)
-    machine       = models.ForeignKey('machines.Machine', on_delete=models.CASCADE)
-    class Meta:
-        unique_together = ('maintenance', 'machine')
+class FichierMaintenanceAdmin(models.Model):
+    maintenance = models.ForeignKey(MaintenanceAdmin, on_delete=models.CASCADE)
+    url = models.CharField(max_length=255)
 
-class Attachment(models.Model):
-    maintenance = models.ForeignKey(MaintenanceClient, on_delete=models.CASCADE, related_name='attachments')
-    file_name   = models.CharField(max_length=255)
-    file_path   = models.TextField()
+
+class FichierMaintenanceClient(models.Model):
+    maintenance = models.ForeignKey(MaintenanceClient, on_delete=models.CASCADE)
+    url = models.CharField(max_length=255)
+
+

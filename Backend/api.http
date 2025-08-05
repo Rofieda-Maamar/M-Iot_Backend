@@ -4,9 +4,10 @@
     Content-Type: application/json
     
     {
-        "email" : "mr_maamar@esi.dz",
-        "password" :"123456-maamar@"
+        "email" : "mamaradmin@example.com",
+        "password" :"securepass123"
     }
+
 
 ###
     POST http://127.0.0.1:8000/api/user/token/refresh/ HTTP/1.1

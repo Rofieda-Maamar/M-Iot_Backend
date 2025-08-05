@@ -57,6 +57,8 @@ SHARED_APPS = [
     'django_extensions',
     'rest_framework',
     'django_rest_passwordreset',
+     'django_filters',
+   
 
 ]
 
@@ -88,6 +90,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication', # to continue use the django admin 
+    ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
     ],
 }
 
@@ -136,10 +141,10 @@ WSGI_APPLICATION = 'Backend.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": "miot_z6i3",
-        "USER": "rofieda",
-        "PASSWORD": "hI9bZhRSuGlFQvK0FsfrghlmPlRLR308",
-        "HOST": "dpg-d28fhf15pdvs73di3nt0-a.oregon-postgres.render.com",
+        "NAME": "sirusmiot2",
+        "USER": "sirusmiot2",
+        "PASSWORD": "BZ2FqMXhfSIAUrhkIX94tug6og25TbCS",
+        "HOST": "dpg-d295u46uk2gs738380r0-a.oregon-postgres.render.com",
         "PORT": "5432",
     }
 }
