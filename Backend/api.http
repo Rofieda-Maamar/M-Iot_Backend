@@ -5,7 +5,7 @@
     
     {
         "email" : "mr_maamar@esi.dz",
-        "password" :"123456"
+        "password" :"123456-maamar@"
     }
 
 ###
@@ -15,3 +15,35 @@
     { 
         "refresh" : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc1NDQ0MTkxNCwiaWF0IjoxNzU0MzU1NTE0LCJqdGkiOiI3YzU0YzJlNzE1N2Q0ZjM1YTZjNGFiMTM0ZjI2MjYyNyIsInVzZXJfaWQiOjF9.kf--4iGUCq_fA_C88iG6j-LcAA8ZhVVRPR7WZmqVkuM"
     }
+
+### 
+    PUT  http://127.0.0.1:8000/api/user/change-password/ HTTP/1.1
+    Content-Type:application/json 
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzU0MzcwMzg2LCJpYXQiOjE3NTQzNzAwODYsImp0aSI6IjhlZTc5NzU5MzU4MTRjM2M5M2MyZTIxNTI2ODY2Yzk1IiwidXNlcl9pZCI6MX0.H1my-TFuNBMaU22V9RrgwCa2MVU-XdJozHbOqf-gRWE
+
+    {
+        "old_password":"123456" ,
+        "new_password":"1234567"
+
+    }
+
+
+###
+    POST  http://127.0.0.1:8000/api/user/password-reset/ HTTP/1.1
+    Content-Type:application/json 
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzU0MzcwMzg2LCJpYXQiOjE3NTQzNzAwODYsImp0aSI6IjhlZTc5NzU5MzU4MTRjM2M5M2MyZTIxNTI2ODY2Yzk1IiwidXNlcl9pZCI6MX0.H1my-TFuNBMaU22V9RrgwCa2MVU-XdJozHbOqf-gRWE
+
+    {
+        "email" : "mr_maamar@esi.dz"
+    }
+
+
+### 
+    POST http://127.0.0.1:8000/api/user/password-reset/confirm/
+    Content-Type:application/json 
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzU0MzcwMzg2LCJpYXQiOjE3NTQzNzAwODYsImp0aSI6IjhlZTc5NzU5MzU4MTRjM2M5M2MyZTIxNTI2ODY2Yzk1IiwidXNlcl9pZCI6MX0.H1my-TFuNBMaU22V9RrgwCa2MVU-XdJozHbOqf-gRWE
+
+{
+  "token": "d8a248bcf6cb159c53" ,
+  "password": "123456-maamar@"
+}

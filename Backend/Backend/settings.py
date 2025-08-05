@@ -56,6 +56,8 @@ SHARED_APPS = [
     "users",
     'django_extensions',
     'rest_framework',
+    'django_rest_passwordreset',
+
 ]
 
 AUTH_USER_MODEL = "users.User"

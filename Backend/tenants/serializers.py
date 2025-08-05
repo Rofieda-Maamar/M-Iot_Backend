@@ -59,7 +59,7 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
             is_primary=True
         )
         
-        # Send verification email
+        # Send verification email to the client email
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
         verify_url = f"http://127.0.0.1:8000/api/user/verify-email/{uid}/{token}/"

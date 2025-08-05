@@ -4,7 +4,11 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from tenants.models import Client
 from django.contrib.auth.base_user import BaseUserManager
-
+from django.dispatch import receiver 
+from django.urls import reverse 
+from django_rest_passwordreset.signals import reset_password_token_created
+from django.core.mail import send_mail
+from django.conf import settings
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -54,3 +58,17 @@ class Admin(models.Model):
     status = models.CharField(max_length=20, blank=True, null=True, choices=status_choices, default='active') 
 
 
+
+
+
+@receiver(reset_password_token_created)
+def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
+    email_plaintext_message = f"http://127.0.0.1:8000/api/user/reset-password?token={reset_password_token.key}"
+
+    send_mail(
+        subject="Password Reset for Your Account",
+        message=email_plaintext_message,
+        from_email='M-IOT <maamarmira005@gmail.com>' ,
+        recipient_list=[reset_password_token.user.email],
+        fail_silently=False,
+    )
