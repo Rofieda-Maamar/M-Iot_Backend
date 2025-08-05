@@ -11,7 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-
+import os 
+from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -24,8 +25,19 @@ SECRET_KEY = 'django-insecure-#fu#x72czciro(&dt0-*lxmj1ognxu!bkt60!a63ma@icc7&9)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
+ENVIRONMENT = config('ENVIRONMENT', default='development')
+POSTGRES_LOCALLY = config('POSTGRES_LOCALLY', default=False, cast=bool)
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_HOST= 'smtp.gmail.com'
+EMAIL_HOST_USER= config('EMAIL_ADDRESS')
+EMAIL_HOST_PASSWORD= config('EMAIL_HOST_PASSWORD')
+EMAIL_PORT=587
+EMAIL_USE_TLS =True # TLS = transport layer security 
+DEFAULT_FROM_EMAIL ='M-IOT'
+ACCOUNT_EMAIL_SUBJECT_PREFIX =''
+
 
 
 TENANT_MODEL = "tenants.Client"
@@ -72,7 +84,7 @@ REST_FRAMEWORK = {
     ], 
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication', # to continue use the django admin 
     ],
 }
 

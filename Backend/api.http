@@ -1,0 +1,17 @@
+#login endpoint
+
+    POST http://127.0.0.1:8000/api/user/token/ HTTP/1.1
+    Content-Type: application/json
+    
+    {
+        "email" : "mr_maamar@esi.dz",
+        "password" :"123456"
+    }
+
+###
+    POST http://127.0.0.1:8000/api/user/token/refresh/ HTTP/1.1
+    Content-Type: application/json 
+
+    { 
+        "refresh" : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc1NDQ0MTkxNCwiaWF0IjoxNzU0MzU1NTE0LCJqdGkiOiI3YzU0YzJlNzE1N2Q0ZjM1YTZjNGFiMTM0ZjI2MjYyNyIsInVzZXJfaWQiOjF9.kf--4iGUCq_fA_C88iG6j-LcAA8ZhVVRPR7WZmqVkuM"
+    }
