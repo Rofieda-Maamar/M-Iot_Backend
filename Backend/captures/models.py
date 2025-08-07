@@ -1,5 +1,6 @@
 # captures/models.py
 from django.db import models
+from sites.models import Site
 
 class CaptureSite(models.Model):
     STATUS_CHOICES = [
@@ -11,7 +12,6 @@ class CaptureSite(models.Model):
     status                 = models.CharField(max_length=20 , choices=STATUS_CHOICES , default='active')
     date_install           = models.DateField()
     date_dernier_serveillance = models.DateField()
-
 
 class TagRfid(models.Model):
     Type_choices = [
@@ -25,39 +25,52 @@ class TagRfid(models.Model):
     date_install           = models.DateField()
     date_dernier_serveillance = models.DateField()
 
-
 class ObjectTracking(models.Model):
-    site            = models.ForeignKey('sites.Site', on_delete=models.CASCADE, related_name='object_trackings')
-    capture_rfid    = models.ForeignKey(TagRfid, on_delete=models.CASCADE, related_name='object_trackings')
-    categorie       = models.CharField(max_length=50)
-    dernier_update  = models.DateTimeField()
-    status            = models.CharField(max_length=20)
-    latitude_depart = models.FloatField(blank=True, null=True)
-    longitude_depart= models.FloatField(blank=True, null=True)
-    latitude_actuel = models.FloatField(blank=True, null=True)
-    longitude_actuel= models.FloatField(blank=True, null=True)
-    latitude_dest   = models.FloatField(blank=True, null=True)
-    longitude_dest  = models.FloatField(blank=True, null=True)
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    capture_RFID = models.ForeignKey(TagRfid, on_delete=models.CASCADE)
+    categorie = models.CharField(max_length=50)
+    etat = models.CharField(max_length=20)
 
+class TrackingPoint(models.Model):
+    nom_lieu = models.CharField(max_length=100)
+    latitude = models.FloatField()
+    longitude = models.FloatField() 
 
-class MesureTracking(models.Model):
-    object_tracking  = models.ForeignKey(ObjectTracking, on_delete=models.CASCADE, related_name='mesures')
-    date_passage     = models.DateField()
-    lieu             = models.CharField(max_length=255)
-    heure            = models.TimeField()
-    duree_passage    = models.DurationField()
+class PathTemplate(models.Model):
+    nom = models.CharField(max_length=100)
+    source = models.CharField(max_length=100) 
+    destination = models.CharField(max_length=100)
+    latitude_src = models.FloatField()
+    longitude_src = models.FloatField()
+    latitude_dest = models.FloatField()
+    longitude_dest = models.FloatField()
 
+class PathTemplatePoint(models.Model):
+    template = models.ForeignKey(PathTemplate, on_delete=models.CASCADE)
+    point = models.ForeignKey(TrackingPoint, on_delete=models.CASCADE)
+    ordre = models.IntegerField()
+
+class MesseurTracking(models.Model):
+    capture_rfid = models.ForeignKey(TagRfid, on_delete=models.CASCADE)
+    path = models.ForeignKey(PathTemplate, on_delete=models.CASCADE)
+    object_tracking = models.ForeignKey(ObjectTracking, on_delete=models.CASCADE)
+    date_debut = models.DateField()
+    date_fin = models.DateField()
+    date_prevu = models.DateField()
+    lieu = models.CharField(max_length=255)
+    heure = models.TimeField()
+    duree_passage = models.TimeField()
+
+    class Meta:
+        unique_together = ('capture_rfid', 'path')
 
 class TypeParametre(models.Model):
     nom        = models.CharField(max_length=50)
     unite      = models.CharField(max_length=20)
     valeur_max = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
-
 class SiteParametre(models.Model):
     capture    = models.ForeignKey(CaptureSite, on_delete=models.CASCADE, related_name='parametres')
     parametre  = models.ForeignKey(TypeParametre, on_delete=models.CASCADE)
     valeur     = models.FloatField()
     date_heure = models.DateTimeField()
-
-   
