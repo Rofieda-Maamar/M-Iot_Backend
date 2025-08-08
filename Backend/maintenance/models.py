@@ -21,7 +21,7 @@ class MaintenanceClientPredictive(models.Model):
 
 class MaintenanceAdmin(models.Model):
    
-    admin = models.ForeignKey(Admin, on_delete=models.CASCADE, related_name="maintenance_maintenanceprd_admins")
+    admin = models.ForeignKey('users.Admin', on_delete=models.CASCADE, related_name="maintenance_maintenanceprd_admins")
     capture_machine = models.ForeignKey('machines.CaptureMachine', on_delete=models.CASCADE)
     date_intervention = models.DateField()
     type = models.CharField(max_length=50)
@@ -29,7 +29,6 @@ class MaintenanceAdmin(models.Model):
 
 class MaintenanceAdminPredictive(models.Model):
     admin = models.ForeignKey('users.Admin', on_delete=models.CASCADE)
-    admin = models.ForeignKey(Admin, on_delete=models.CASCADE, related_name="maintenance_maintenanceprd_admins")
     capture_machine = models.ForeignKey('machines.CaptureMachine', on_delete=models.CASCADE)
     
     date_intervention = models.DateField()
@@ -43,5 +42,3 @@ class FichierMaintenanceAdmin(models.Model):
 class FichierMaintenanceClient(models.Model):
     maintenance = models.ForeignKey(MaintenanceClient, on_delete=models.CASCADE)
     url = models.CharField(max_length=255)
-
-

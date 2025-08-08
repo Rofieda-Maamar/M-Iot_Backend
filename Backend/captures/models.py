@@ -13,11 +13,6 @@ class CaptureSite(models.Model):
     date_install           = models.DateField()
     date_dernier_serveillance = models.DateField()
 
-
-    
-
-
-    
 class TagRfid(models.Model):
     Type_choices = [
         ('actif', 'Actif'),
@@ -30,8 +25,6 @@ class TagRfid(models.Model):
     date_install           = models.DateField()
     date_dernier_serveillance = models.DateField()
 
-
-
 class ObjectTracking(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     capture_RFID = models.ForeignKey(TagRfid, on_delete=models.CASCADE)
@@ -41,8 +34,7 @@ class ObjectTracking(models.Model):
 class TrackingPoint(models.Model):
     nom_lieu = models.CharField(max_length=100)
     latitude = models.FloatField()
-    longitude = models.FloatField()
-  
+    longitude = models.FloatField() 
 
 class PathTemplate(models.Model):
     nom = models.CharField(max_length=100)
@@ -72,12 +64,10 @@ class MesseurTracking(models.Model):
     class Meta:
         unique_together = ('capture_rfid', 'path')
 
-
 class TypeParametre(models.Model):
     nom        = models.CharField(max_length=50)
     unite      = models.CharField(max_length=20)
     valeur_max = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-
 
 class SiteParametre(models.Model):
     capture    = models.ForeignKey(CaptureSite, on_delete=models.CASCADE, related_name='parametres')
