@@ -42,19 +42,21 @@ class AdminDetailView(generics.RetrieveAPIView):
 class AdminUpdateAPIView(generics.UpdateAPIView):
     queryset = Admin.objects.select_related('user')
     serializer_class = AdminUpdateSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    lookup_field = 'id'
+    #permission_classes = [IsAuthenticated, IsAdminUser]
     
 
 class AdminDeactivateAPIView(generics.UpdateAPIView):
     queryset = Admin.objects.all()
     serializer_class = AdminDeactivateSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    lookup_field = 'id'
+    #permission_classes = [IsAuthenticated, IsAdminUser]
 
    
 class AdminSearchAPIView(generics.ListAPIView):
     queryset = Admin.objects.select_related('user').all()
     serializer_class = AdminListSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    #permission_classes = [IsAuthenticated, IsAdminUser]
 
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
 
