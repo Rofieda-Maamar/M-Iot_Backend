@@ -10,6 +10,8 @@ from django.conf import settings
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
+from sites.serializers import SiteNameSerializer
+from sites.models import Site
 User = get_user_model()
 
 class AddClientWithUserSerializer(serializers.ModelSerializer):
@@ -36,6 +38,7 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         email = validated_data.pop('email')
         password = validated_data.pop('password')
+        telephone = validated_data.pop('telephone')
         #username = validated_data.pop('username')
         nom_entreprise = validated_data.get('nom_entreprise')
 
@@ -43,7 +46,7 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
         schema_name = self.generate_schema_name(nom_entreprise)
 
         # Create user instance
-        user = User.objects.create_user(email=email, password=password)
+        user = User.objects.create_user(email=email, password=password ,telephone=telephone)
 
         # Create tenant (client)
         client = Client.objects.create(
@@ -73,3 +76,26 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
         )
 
         return client
+    
+
+class ClientListSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source = 'user.email' , read_only = True)
+    class Meta:
+        model = Client 
+        fields = ['id' ,'industrie' , 'latitude' ,'longitude', 'email' , 'nom_entreprise']
+
+
+class ClientDetailSerializer(serializers.ModelSerializer):
+    telephone = serializers.CharField(source = 'user.telephone' , read_only = True) 
+    email = serializers.EmailField(source = 'user.email' , read_only = True)
+    created_at = serializers.DateTimeField(source = 'user.created_at' , read_only = True , format='%Y-%m-%d')
+    sites = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Client 
+        fields = ['id' ,'industrie' ,'latitude' ,'longitude', 'status' , 'telephone', 'email' ,'created_at' , 'sites' ]
+
+    def get_sites(self , obj):
+        sites = Site.objects.all()
+        return SiteNameSerializer(sites , many=True).data
+

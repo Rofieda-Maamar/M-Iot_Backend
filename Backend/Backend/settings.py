@@ -27,7 +27,9 @@ SECRET_KEY = 'django-insecure-#fu#x72czciro(&dt0-*lxmj1ognxu!bkt60!a63ma@icc7&9)
 DEBUG = True
 ENVIRONMENT = config('ENVIRONMENT', default='development')
 POSTGRES_LOCALLY = config('POSTGRES_LOCALLY', default=False, cast=bool)
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = [
+    '*'
+]
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST= 'smtp.gmail.com'
@@ -94,6 +96,7 @@ REST_FRAMEWORK = {
 
 MIDDLEWARE = [
     'django_tenants.middleware.main.TenantMainMiddleware',
+    'Backend.debug_tenant.DebugTenantMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
