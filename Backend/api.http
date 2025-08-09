@@ -5,7 +5,7 @@
     
     {
         "email" : "mr_maamar@esi.dz",
-        "password" :"@123456@maamar"
+        "password" :"@1234567@maamar"
     }
 
 ###
@@ -44,8 +44,8 @@
     Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzU0MzcwMzg2LCJpYXQiOjE3NTQzNzAwODYsImp0aSI6IjhlZTc5NzU5MzU4MTRjM2M5M2MyZTIxNTI2ODY2Yzk1IiwidXNlcl9pZCI6MX0.H1my-TFuNBMaU22V9RrgwCa2MVU-XdJozHbOqf-gRWE
 
     {
-        "token": "8940d98ef50e0688413757586d5" ,
-        "password": "@123456@maamar"
+        "token": "9e4bd7548e485f1f22f1c05cf2bb3916" ,
+        "password": "@1234567@maamar"
     }
 
 ###
