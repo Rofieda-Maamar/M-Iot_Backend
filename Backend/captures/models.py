@@ -64,6 +64,8 @@ class MesseurTracking(models.Model):
     class Meta:
         unique_together = ('capture_rfid', 'path')
 
+
+
 class TypeParametre(models.Model):
     nom_choices =[
         ('temperateur','temperateur'),

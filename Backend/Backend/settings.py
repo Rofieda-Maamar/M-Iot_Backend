@@ -140,10 +140,10 @@ WSGI_APPLICATION = 'Backend.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": "miot_z6i3",
+        "NAME": "miotbdd_q4cm",
         "USER": "rofieda",
-        "PASSWORD": "hI9bZhRSuGlFQvK0FsfrghlmPlRLR308",
-        "HOST": "dpg-d28fhf15pdvs73di3nt0-a.oregon-postgres.render.com",
+        "PASSWORD": "SFDGkh1FP7GIx1FV1ZZ7cBFrBr87Y4r8",
+        "HOST": "dpg-d2cvl7qdbo4c73c6a340-a.oregon-postgres.render.com",
         "PORT": "5432",
     }
 }
@@ -195,6 +195,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 
+CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]

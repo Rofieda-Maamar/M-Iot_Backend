@@ -18,6 +18,8 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
     # email , password  to create the user will be associated with the client
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+    telephone = serializers.CharField(write_only=True)
+
   #  username = serializers.CharField()
 
     class Meta:
@@ -25,7 +27,7 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
         fields = [
             'email', 'password',
             'nom_entreprise', 'adresse', 'latitude',
-            'longitude', 'industrie', 'nom_resp', 'prenom_resp', 'status'
+            'longitude', 'industrie', 'nom_resp', 'prenom_resp', 'status' , 'telephone'
         ]
 
     @staticmethod # the function don't depend to the class , i can call it everywhere 
