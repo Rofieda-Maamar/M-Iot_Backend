@@ -64,13 +64,25 @@ class MesseurTracking(models.Model):
     class Meta:
         unique_together = ('capture_rfid', 'path')
 
+
+
 class TypeParametre(models.Model):
+    nom_choices =[
+        ('temperateur','temperateur'),
+        ('luminosite','luminosite') , 
+        ('humidite','humidite') , 
+        ('vibration','vibration') , 
+        ('voltage','voltage') , 
+        ('pression','pression') , 
+        ('amperage' , 'amperage')
+    ]
+    site = models.ForeignKey(Site , on_delete=models.CASCADE , related_name='parametre')  
+    capture    = models.ForeignKey(CaptureSite, on_delete=models.CASCADE, related_name='parametres')
     nom        = models.CharField(max_length=50)
     unite      = models.CharField(max_length=20)
     valeur_max = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
 class SiteParametre(models.Model):
-    capture    = models.ForeignKey(CaptureSite, on_delete=models.CASCADE, related_name='parametres')
-    parametre  = models.ForeignKey(TypeParametre, on_delete=models.CASCADE)
+    typeParametre = models.ForeignKey(TypeParametre , on_delete=models.CASCADE , related_name='valeurs')
     valeur     = models.FloatField()
     date_heure = models.DateTimeField()
