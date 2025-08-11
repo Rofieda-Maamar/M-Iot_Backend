@@ -8,4 +8,3 @@ class Site(models.Model):
     asset_tracking = models.BooleanField(default=False)
     etat           = models.CharField(max_length=20)
     date_ajout     = models.DateTimeField(auto_now_add=True)
-

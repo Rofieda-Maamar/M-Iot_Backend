@@ -57,6 +57,8 @@ SHARED_APPS = [
     'django_extensions',
     'rest_framework',
     'django_rest_passwordreset',
+     'django_filters',
+   
 
 ]
 
@@ -88,6 +90,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication', # to continue use the django admin 
+    ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
     ],
 }
 
