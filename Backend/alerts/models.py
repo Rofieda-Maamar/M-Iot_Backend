@@ -26,4 +26,3 @@ class AlertLog(models.Model):
     nbr_email      = models.IntegerField(default=0)
     nbr_sms        = models.IntegerField(default=0)
     date_heure     = models.DateTimeField()
-

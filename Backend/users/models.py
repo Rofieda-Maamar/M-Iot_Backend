@@ -10,6 +10,8 @@ from django_rest_passwordreset.signals import reset_password_token_created
 from django.core.mail import send_mail
 from django.conf import settings
 
+
+
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -50,7 +52,7 @@ class Admin(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     nom = models.CharField(max_length=50)
     prenom = models.CharField(max_length=50)
-    role = models.CharField(max_length=50)
+    role = models.CharField(max_length=255)
     status_choices = [ 
         ('active','active'),
         ('inactive','inactive')
@@ -72,3 +74,4 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
         recipient_list=[reset_password_token.user.email],
         fail_silently=False,
     )
+

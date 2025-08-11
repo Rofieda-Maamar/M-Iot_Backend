@@ -1,26 +1,70 @@
 from django.shortcuts import render
-from .Serializers import UserSerializer , ChangePasswordSerializer
-from rest_framework import generics
-from .models import User
+from .Serializers import AdminDeactivateSerializer, AdminDetailSerializer, AdminListSerializer, AdminUpdateSerializer, UserSerializer , ChangePasswordSerializer , AdminSerializer
+from rest_framework import generics ,filters
+from .models import User , Admin
 from django.utils.http import urlsafe_base64_decode
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from rest_framework.permissions import IsAuthenticated
-
+from users.permissions import IsAdminUser ,  IsAjoutdescomptes
 
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 
+from rest_framework import filters
+from django_filters.rest_framework import DjangoFilterBackend
 
 class AddUserView(generics.CreateAPIView) :  # creatApiView hendle : post , call the serializer , validat the data , calls .creat, and return the response
     queryset= User.objects.all()
     serializer_class=UserSerializer
+    permission_classes = [IsAuthenticated, IsAjoutdescomptes]
+
+class AddAdminView(generics.CreateAPIView):
+    queryset = Admin.objects.all()
+    serializer_class = AdminSerializer
+    permission_classes = [IsAuthenticated, IsAjoutdescomptes]
+
+class AdminListView(generics.ListAPIView):
+    queryset = Admin.objects.select_related('user').all()
+    serializer_class = AdminListSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+class AdminDetailView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    queryset = Admin.objects.select_related('user').all()
+    serializer_class = AdminDetailSerializer
+    lookup_field = 'id'
 
 
+class AdminUpdateAPIView(generics.UpdateAPIView):
+    queryset = Admin.objects.select_related('user')
+    serializer_class = AdminUpdateSerializer
+    lookup_field = 'id'
+    #permission_classes = [IsAuthenticated, IsAdminUser]
+    
 
+class AdminDeactivateAPIView(generics.UpdateAPIView):
+    queryset = Admin.objects.all()
+    serializer_class = AdminDeactivateSerializer
+    lookup_field = 'id'
+    #permission_classes = [IsAuthenticated, IsAdminUser]
+
+   
+class AdminSearchAPIView(generics.ListAPIView):
+    queryset = Admin.objects.select_related('user').all()
+    serializer_class = AdminListSerializer
+    #permission_classes = [IsAuthenticated, IsAdminUser]
+
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+
+    # Full-text search
+    search_fields = ['nom', 'prenom', 'user__email', 'user__telephone', 'status', 'role']
+
+    # Exact match filters (optional if you want ?status=active for example)
+    filterset_fields = ['status', 'role']
 User = get_user_model()
 
 def verify_email(request, uidb64, token):
