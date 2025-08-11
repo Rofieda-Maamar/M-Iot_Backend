@@ -20,20 +20,20 @@ from django_filters.rest_framework import DjangoFilterBackend
 class AddUserView(generics.CreateAPIView) :  # creatApiView hendle : post , call the serializer , validat the data , calls .creat, and return the response
     queryset= User.objects.all()
     serializer_class=UserSerializer
-    permission_classes = [IsAuthenticated, IsAjoutdescomptes]
+    #permission_classes = [IsAuthenticated, IsAjoutdescomptes]
 
 class AddAdminView(generics.CreateAPIView):
     queryset = Admin.objects.all()
     serializer_class = AdminSerializer
-    permission_classes = [IsAuthenticated, IsAjoutdescomptes]
+    #permission_classes = [IsAuthenticated, IsAjoutdescomptes]
 
 class AdminListView(generics.ListAPIView):
     queryset = Admin.objects.select_related('user').all()
     serializer_class = AdminListSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+   # permission_classes = [IsAuthenticated, IsAdminUser]
 
 class AdminDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    #permission_classes = [IsAuthenticated, IsAdminUser]
     queryset = Admin.objects.select_related('user').all()
     serializer_class = AdminDetailSerializer
     lookup_field = 'id'
