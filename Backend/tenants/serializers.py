@@ -82,9 +82,10 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
 
 class ClientListSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source = 'user.email' , read_only = True)
+    client = serializers.CharField(source='nom_entreprise')
     class Meta:
         model = Client 
-        fields = ['id' ,'industrie' , 'latitude' ,'longitude', 'email' , 'nom_entreprise']
+        fields = ['id' ,'client' ,'industrie' , 'adresse' , 'email' ]
 
 
 class ClientDetailSerializer(serializers.ModelSerializer):
