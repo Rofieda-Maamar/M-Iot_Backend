@@ -72,13 +72,13 @@
 
 
 ###
-    POST http://nomentrprise.localhost:8000/api/site/add-site/ HTTP/1.1
+    POST http://clienttest.localhost:8000/api/site/add-site/ HTTP/1.1
     Content-Type:application/json 
 
     
         {
             "nom": "Site A",
-            "adresse": "123 Main St",
+            "adresse": "Boussada",
             "latitude": 36.75,
             "longitude": 3.04,
             "asset_tracking": true,
@@ -88,7 +88,7 @@
                     "unite": "Celsius",
                     "valeur_max": 100,
                     "capture": {
-                        "num_serie": "Capture5",
+                        "num_serie": "Capturesite1",
                         "date_install": "2025-08-09",
                         "date_dernier_serveillance": "2025-08-10"
                     }
@@ -98,7 +98,7 @@
                     "unite": "%",
                     "valeur_max": 80,
                     "capture": {
-                        "num_serie": "Capture6",
+                        "num_serie": "Captursite1",
                         "date_install": "2025-08-09",
                         "date_dernier_serveillance": "2025-08-10"
                     }
@@ -107,3 +107,22 @@
         }
 
     
+###
+ GET http://127.0.0.1:8000/api/machines/all-capture-machines/ HTTP/1.1
+    Content-Type:application/json
+    
+###
+  Post http://127.0.0.1:8000/api/maintenance/add-maintenance-admin/ HTTP/1.1
+  Content-Type:application/json
+   Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzU0OTQwMDQ5LCJpYXQiOjE3NTQ5Mzk3NDksImp0aSI6IjczMDEyOTMwMTZiZDQ0NGE5OWIzMzU4MjRhMDkwNjY2IiwidXNlcl9pZCI6IjUifQ.D79_Zcj13PwUei_uEmjAnw-4h_gGAewTDVs5l_i2K5w
+
+{
+  "num_serie": "Capteur-CT-M2",
+  "date_intervention": "2025-08-15",
+  "type": "corrective",
+  "resume": "Maintenance complète du capteur suite au contrôle périodique.",
+  "fichiers": [
+    {"url": "http://exemple.com/fichiers/rapport1.pdf"},
+    {"url": "http://exemple.com/fichiers/photo2.jpg"}
+  ]
+}
