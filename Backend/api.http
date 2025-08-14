@@ -191,4 +191,9 @@
 
 
 
-curl -X POST "http://nomentrprise.localhost:8000/api/captures/upload-tag-rfid/" \ -F "file=@test_tags.xlsx" \ -F "site=1"
+#curl -X POST "http://nomentrprise.localhost:8000/api/captures/upload-tag-rfid/" \ -F "file=@test_tags.xlsx" \ -F "site=1"
+
+
+
+###
+GEt http://nomentrprise.localhost:8000/api/site/sites/ HTTP/1.1

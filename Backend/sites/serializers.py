@@ -34,3 +34,15 @@ class SiteSerializer(serializers.ModelSerializer) :
             serializer.save()
         return site
 
+
+class SiteDisplaySerializer(serializers.ModelSerializer): 
+    parametre =serializers.SerializerMethodField()
+
+    class Meta: 
+        model = Site 
+        fields = ['id','nom', 'adresse', 'date_ajout', 'parametre']
+
+    def get_parametre(self, obj):
+        # Get all parametre names for this site
+        param_names = obj.parametre.values_list('nom', flat=True)
+        return list(param_names)
