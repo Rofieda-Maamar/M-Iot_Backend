@@ -1,5 +1,5 @@
 from rest_framework import serializers 
-from .models import TypeParametre , CaptureSite , TypeParametre
+from .models import TypeParametre , CaptureSite , TypeParametre , TagRfid
 
 
 
@@ -27,3 +27,11 @@ class TypeParametreSerializer (serializers.ModelSerializer) :
         capture = capture_serializer.save()
 
         return TypeParametre.objects.create(site=site, capture=capture, **validated_data)
+    
+
+
+
+class TagRfidSerializer(serializers.ModelSerializer) :
+    class Meta : 
+        model = TagRfid
+        fields = ['site' ,'num_serie' , 'type' ,'date_install']

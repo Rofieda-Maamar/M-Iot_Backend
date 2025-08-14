@@ -21,6 +21,10 @@ urlpatterns = [
     path('api/tenants/', include('tenants.urls')),
     path('api/user/' , include('users.urls')) ,
     path('api/site/' , include('sites.urls')) ,
+    path('api/machine/' , include('machines.urls')) ,
+    path('api/clientUsers/' , include('ClientUsers.urls')) ,
+    path('api/captures/' , include('captures.urls')) ,
+
     path('admin/', admin.site.urls),
    
 ]

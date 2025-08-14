@@ -140,10 +140,10 @@ WSGI_APPLICATION = 'Backend.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": "miotbdd_q4cm",
+        "NAME": "mast_miot",
         "USER": "rofieda",
-        "PASSWORD": "SFDGkh1FP7GIx1FV1ZZ7cBFrBr87Y4r8",
-        "HOST": "dpg-d2cvl7qdbo4c73c6a340-a.oregon-postgres.render.com",
+        "PASSWORD": "GdsGrorBjGbVvvGGNv9tOby73XkijyP2",
+        "HOST": "dpg-d2ec38odl3ps73a49i6g-a.oregon-postgres.render.com",
         "PORT": "5432",
     }
 }

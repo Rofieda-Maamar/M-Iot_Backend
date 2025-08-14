@@ -9,7 +9,7 @@ from captures.models import TypeParametre , CaptureSite
 class SiteNameSerializer(serializers.ModelSerializer):
     class Meta:
         model = Site
-        fields = ['nom']
+        fields = ['id','nom']
 
 
 class SiteSerializer(serializers.ModelSerializer) : 
