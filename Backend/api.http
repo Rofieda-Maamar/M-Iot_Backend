@@ -84,7 +84,7 @@
 
     
         {
-            "nom": "Site A",
+            "nom": "Site B",
             "adresse": "123 Main St",
             "latitude": 36.75,
             "longitude": 3.04,
@@ -95,7 +95,7 @@
                     "unite": "Celsius",
                     "valeur_max": 100,
                     "capture": {
-                        "num_serie": "Capture5",
+                        "num_serie": "Capture8",
                         "date_install": "2025-08-09",
                         "date_dernier_serveillance": "2025-08-10"
                     }
@@ -105,7 +105,7 @@
                     "unite": "%",
                     "valeur_max": 80,
                     "capture": {
-                        "num_serie": "Capture6",
+                        "num_serie": "Capture9",
                         "date_install": "2025-08-09",
                         "date_dernier_serveillance": "2025-08-10"
                     }
