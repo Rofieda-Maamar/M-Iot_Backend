@@ -11,7 +11,7 @@ class CaptureSite(models.Model):
     num_serie              = models.CharField(max_length=100, unique=True)
     status                 = models.CharField(max_length=20 , choices=STATUS_CHOICES , default='active')
     date_install           = models.DateField()
-    date_dernier_serveillance = models.DateField()
+    date_dernier_serveillance = models.DateField(blank=True , null= True)
 
 class TagRfid(models.Model):
     STATUS_CHOICES = [

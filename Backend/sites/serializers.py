@@ -1,6 +1,6 @@
 from .models import Site
 from rest_framework import serializers
-from captures.serializers import TypeParametreSerializer , CaptureSiteSerializer
+from captures.serializers import TypeParametreSerializer , CaptureSiteSerializer 
 from captures.models import TypeParametre , CaptureSite 
 
 
@@ -13,25 +13,27 @@ class SiteNameSerializer(serializers.ModelSerializer):
 
 
 class SiteSerializer(serializers.ModelSerializer) : 
-    parametre = TypeParametreSerializer(many = True)
+    captures = CaptureSiteSerializer(many = True)
     
 
     class Meta: 
         model= Site
-        fields =['nom' , 'adresse' , 'latitude' , 'longitude' ,'asset_tracking', 'parametre' ]
+        fields =['nom' , 'adresse' , 'latitude' , 'longitude' ,'asset_tracking', 'captures' ]
 
     def create(self , validated_data) : 
-        # remove the parametre from the request body
-        parametred_data = validated_data.pop('parametre' , [])
+        # remove the captures from the data
+        captures_data = validated_data.pop('captures' , []) # remove the capture to add the site object 
        
         #creat the site object 
         site = Site.objects.create(**validated_data)
-        # creat the parametres , and associate them to this site
+        # creat the captures , and associate them to this site
+        
 
-        for param in parametred_data : 
-            serializer = TypeParametreSerializer(data=param, context={'site': site})
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
+        for capture_data in captures_data : 
+            capture_serializer = CaptureSiteSerializer(data = capture_data , context={'site' : site}) # Pass the site object here ,
+            #bcs the site isn't inside each capture , so pass the created site object to the capture , bcs it include in each capture the site as fk 
+            capture_serializer.is_valid(raise_exception=True)
+            capture_serializer.save()
         return site
 
 
