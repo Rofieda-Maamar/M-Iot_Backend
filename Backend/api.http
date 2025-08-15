@@ -71,18 +71,6 @@
 
 ###
 
-###
-    POST http://127.0.0.1:8000/api/clientUsers/add-clientuser/?client_id=2 HTTP/1.1
-    Content-Type:application/json 
-
-    {
-        
-        "email": "clientuser11@example.com",
-        "password": "123456",
-        "telephone": "+213123456789",
-        "role": "canread"
-
-    }
 
 ###
   POST http://nomentrprise.localhost:8000/api/clientUsers/upload-clientuser/ HTTP/1.1

@@ -11,3 +11,9 @@
         "role": "canread"
 
     }
+
+
+
+### pour tester upload userClient u should go to the directory that contain the Book1.xlsx file  ( 7atito f tickets folder )
+# and run this command : curl -X POST "http://127.0.0.1:8000/api/clientUsers/upload-clientuser/?client_id=3" -F "file=@Book1.xlsx"
+# the file format should be xlsx 

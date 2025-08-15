@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError , NotFound
 from tenants.models import Client
-
+from django_tenants.utils import schema_context
 class AddClientUserView(generics.CreateAPIView):
     serializer_class=ClientUserSerializer
 
@@ -28,11 +28,23 @@ class AddClientUserView(generics.CreateAPIView):
 
 
 class UploadClientUserView(APIView):
+
+
     """
     Upload an Excel file with multiple users.
     File should have columns: email, password, telephone, role
     """
+    
     def post(self, request, format=None):
+        client_id = request.query_params.get("client_id")
+        if not client_id : 
+            raise ValidationError("client id is required ")
+
+        try : 
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist : 
+            raise NotFound("client with this id not found ")
+        
         file = request.FILES.get('file')
         if not file:
             return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -40,7 +52,6 @@ class UploadClientUserView(APIView):
         try:
             # Read Excel into pandas DataFrame
             df = pd.read_excel(file)
-
             # Convert rows to list of dicts
             users_data = df.to_dict(orient='records')
         except Exception as e:
@@ -49,13 +60,24 @@ class UploadClientUserView(APIView):
         created_users = []
         errors = []
 
-        for i, user_data in enumerate(users_data):
-            serializer = ClientUserSerializer(data=user_data)
-            if serializer.is_valid():
-                serializer.save()
-                created_users.append(serializer.data)
-            else:
-                errors.append({"row": i+1, "errors": serializer.errors})
+        required_columns = ['email', 'password', 'telephone', 'role']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+
+        if missing_columns:
+            return Response(
+                {"error": f"Missing required columns: {', '.join(missing_columns)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        with schema_context(client.schema_name):
+
+            for i, user_data in enumerate(users_data):
+                serializer = ClientUserSerializer(data=user_data , context = {"schema_name" : client.schema_name})
+                if serializer.is_valid():
+                    serializer.save()
+                    created_users.append(serializer.data)
+                else:
+                    errors.append({"row": i+1, "errors": serializer.errors})
 
         if errors:
             return Response({"created": created_users, "errors": errors}, status=status.HTTP_207_MULTI_STATUS)

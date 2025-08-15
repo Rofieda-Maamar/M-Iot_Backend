@@ -9,10 +9,12 @@ class ClientUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     telephone = serializers.CharField(write_only=True)
     role = serializers.CharField(write_only=True)
+    
+    created_email = serializers.CharField(read_only=True)
 
     class Meta : 
         model = ClientUser
-        fields = ['email', 'password', 'telephone', 'role']
+        fields = ['email', 'password', 'telephone', 'role' , 'created_email']
 
     def validate_email (self , value):
         # validate user with this email on the tennant users
@@ -44,5 +46,11 @@ class ClientUserSerializer(serializers.ModelSerializer):
                 user_id=user.id ,
                 **validated_data # the role 
             ) 
-        
+            client_user.created_email = user.email
         return client_user
+
+    def to_representation(self, instance):
+        """Include created_email in the response."""
+        ret = super().to_representation(instance)
+        ret['created_email'] = getattr(instance, 'created_email', None)
+        return ret
