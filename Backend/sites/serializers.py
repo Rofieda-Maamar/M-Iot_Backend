@@ -2,6 +2,7 @@ from .models import Site
 from rest_framework import serializers
 from captures.serializers import TypeParametreSerializer , CaptureSiteSerializer 
 from captures.models import TypeParametre , CaptureSite 
+from django_tenants.utils import schema_context
 
 
 
@@ -23,18 +24,21 @@ class SiteSerializer(serializers.ModelSerializer) :
     def create(self , validated_data) : 
         # remove the captures from the data
         captures_data = validated_data.pop('captures' , []) # remove the capture to add the site object 
-       
-        #creat the site object 
-        site = Site.objects.create(**validated_data)
-        # creat the captures , and associate them to this site
+        schema_name = self.context.get('schema_name')
+        if not schema_name:
+            raise ValueError("schema_name is required in serializer context to create site in tenant schema.")
+        
+        with schema_context(schema_name):
+            # Create the site in that tenant's schema
+            site = Site.objects.create(**validated_data)
         
 
-        for capture_data in captures_data : 
-            capture_serializer = CaptureSiteSerializer(data = capture_data , context={'site' : site}) # Pass the site object here ,
-            #bcs the site isn't inside each capture , so pass the created site object to the capture , bcs it include in each capture the site as fk 
-            capture_serializer.is_valid(raise_exception=True)
-            capture_serializer.save()
-        return site
+            for capture_data in captures_data : 
+                capture_serializer = CaptureSiteSerializer(data = capture_data , context={'site' : site}) # Pass the site object here ,
+                #bcs the site isn't inside each capture , so pass the created site object to the capture , bcs it include in each capture the site as fk 
+                capture_serializer.is_valid(raise_exception=True)
+                capture_serializer.save()
+            return site
 
 
 class SiteDisplaySerializer(serializers.ModelSerializer): 

@@ -25,10 +25,12 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = [
+            'id',
             'email', 'password',
             'nom_entreprise', 'adresse', 'latitude',
-            'longitude', 'industrie', 'nom_resp', 'prenom_resp', 'status' , 'telephone'
+            'longitude', 'industrie', 'nom_resp', 'prenom_resp', 'status' , 'telephone' , 'schema_name'
         ]
+        read_only_fields = ['schema_name']  # it’s not required on input
 
     @staticmethod # the function don't depend to the class , i can call it everywhere 
     def generate_schema_name(nom_entreprise):
