@@ -4,7 +4,7 @@ from captures.serializers import TypeParametreSerializer , CaptureSiteSerializer
 from captures.models import TypeParametre , CaptureSite 
 from django_tenants.utils import schema_context
 
-
+from rest_framework.exceptions import ValidationError
 
 # for the client sites display
 class SiteNameSerializer(serializers.ModelSerializer):
@@ -26,7 +26,7 @@ class SiteSerializer(serializers.ModelSerializer) :
         captures_data = validated_data.pop('captures' , []) # remove the capture to add the site object 
         schema_name = self.context.get('schema_name')
         if not schema_name:
-            raise ValueError("schema_name is required in serializer context to create site in tenant schema.")
+            raise ValidationError("schema_name is required in serializer context to create site in tenant schema.")
         
         with schema_context(schema_name):
             # Create the site in that tenant's schema

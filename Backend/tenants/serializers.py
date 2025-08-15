@@ -12,7 +12,11 @@ from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from sites.serializers import SiteNameSerializer
 from sites.models import Site
+from rest_framework.exceptions import ValidationError
+from django_tenants.utils import schema_context
+
 User = get_user_model()
+
 
 class AddClientWithUserSerializer(serializers.ModelSerializer):
     # email , password  to create the user will be associated with the client
@@ -92,6 +96,8 @@ class ClientListSerializer(serializers.ModelSerializer):
         fields = ['id' ,'client' ,'industrie' , 'adresse' , 'email' ]
 
 
+
+
 class ClientDetailSerializer(serializers.ModelSerializer):
     telephone = serializers.CharField(source = 'user.telephone' , read_only = True) 
     email = serializers.EmailField(source = 'user.email' , read_only = True)
@@ -103,6 +109,36 @@ class ClientDetailSerializer(serializers.ModelSerializer):
         fields = ['id' ,'industrie' ,'latitude' ,'longitude', 'status' , 'telephone', 'email' ,'created_at' , 'sites' ]
 
     def get_sites(self , obj):
-        sites = Site.objects.all()
-        return SiteNameSerializer(sites , many=True).data
+        schema_name = self.context.get('schema_name')
+        if not schema_name : 
+            raise ValidationError("schema name is required")
+        with schema_context(schema_name): 
+            sites = Site.objects.all()
+            return SiteNameSerializer(sites , many=True).data
+    
+    def _get_user(self , obj) : 
+        # get user from the tennat schema 
+        schema_name = self.context.get('schema_name')
+        if not schema_name : 
+            raise ValidationError('schema name is required')
+        with schema_context(schema_name) :
+            user = self.instance.user
+            return user
+    
+    def get_telephone(self , obj) : 
+        user = self._get_user()
+        return getattr(user , 'telephone' ,None) if user else None
+    
+    def get_email(self , obj) : 
+        user = self._get_user()
+        return getattr(user , 'email' , None) if user else None
+    
+    def get_created_at(self, obj):
+        user = self._get_user()
+        return  user.created_at.strftime('%Y-%m-%d') if user and user.created_at else None
+           
+        
+        
+
+
 

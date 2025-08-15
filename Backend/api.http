@@ -53,33 +53,16 @@
     GET http://127.0.0.1:8000/api/tenants/clients/ HTTP/1.1
     Content-Type:application/json
     
+
+
+
+  #   i should start correcting from this one 
 ###
-    GET http://nomentrprise.localhost:8000/api/tenants/clients/1/ HTTP/1.1
-
-###
-
-
-###
-    POST http://127.0.0.1:8000/api/tenants/add-client/ HTTP/1.1
-    Content-Type:application/json 
-
-    {
-        "email": "mr_maamar+2@esi.dz",
-        "password": "123456",
-        "telephone": "0551234567",
-        "nom_entreprise": "mira",
-        "role" :"client",
-        "adresse": "Baraki, Alger, Algérie",
-        "latitude": "36.7538",
-        "longitude": "3.0588",
-        "industrie": "Construction",
-        "nom_resp": "Rofa",
-        "prenom_resp": "Mmr",
-        "status": "active" 
-    }
-
+    GET http://127.0.0.1:8000/api/tenants/clients/4/ HTTP/1.1
 
 ###
+
+
 
     
 
@@ -87,41 +70,6 @@
 
 
 ###
-    POST http://127.0.0.1:8000/api/machine/add-machine/?client_id=2 HTTP/1.1
-    Content-Type:application/json 
-
-    {
-    "site": 1,
-    "identificateur": "M-123",
-    "status": "active",
-    "date_installation": "2025-08-13T10:00:00Z",
-    "captures": [
-        {
-            "num_serie": "C-001",
-            "date_install": "2025-08-13",
-            "parametre": [
-                {"nom": "temperature", "unite": "°C", "valeur_max": 100},
-                {"nom": "voltage", "unite": "v", "valeur_max": 10}
-            ]
-        },
-        {
-            "num_serie": "C-002",
-            "date_install": "2025-08-13",
-            "parametre": [
-                {"nom": "humidite", "unite": "%", "valeur_max": 80}
-            ]
-        },
-        {
-            "num_serie": "C-003",
-            "date_install": "2025-08-13",
-            "parametre": [
-                {"nom": "vibration", "unite": "Hz", "valeur_max": 500}
-            ]
-        }
-    ]
-}
-
-
 
 ###
     POST http://nomentrprise.localhost:8000/api/clientUsers/add-clientuser/ HTTP/1.1
@@ -170,57 +118,3 @@ GEt http://nomentrprise.localhost:8000/api/site/sites/ HTTP/1.1
 
 
 
-
-
-
-###
-    POST http://127.0.0.1:8000/api/site/add-site/?client_id=2 HTTP/1.1
-    Content-Type:application/json 
-
-        {
-            "nom": "Site C",
-            "adresse": "baraki 1",
-            "latitude": 36.75,
-            "longitude": 3.04,
-            "asset_tracking": true,
-            "captures": [
-                {
-                    "num_serie": "CaptureA",
-                    "date_install": "2025-08-09",
-                    "parametres": [
-                        {
-                            "nom": "temperateur",
-                            "unite": "Celsius",
-                            "valeur_max": 100
-                        }
-                    ]
-                },
-                {
-                    "num_serie": "CaptureB",
-                    "date_install": "2025-08-09",
-                    "parametres": [
-                        {
-                            "nom": "humidite",
-                            "unite": "%",
-                            "valeur_max": 80
-                        }
-                    ]
-                },
-                {
-                    "num_serie": "CaptureC",
-                    "date_install": "2025-08-11",
-                    "parametres": [
-                        {
-                            "nom": "pression",
-                            "unite": "Pa",
-                            "valeur_max": 200
-                        },
-                        {
-                            "nom": "vibration",
-                            "unite": "Hz",
-                            "valeur_max": 500
-                        }
-                    ]
-                }
-            ]
-        }
