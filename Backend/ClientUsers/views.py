@@ -5,10 +5,25 @@ from .serializers import ClientUserSerializer
 import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
-
+from rest_framework.exceptions import ValidationError , NotFound
+from tenants.models import Client
 
 class AddClientUserView(generics.CreateAPIView):
     serializer_class=ClientUserSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context() 
+        client_id = self.request.query_params.get('client_id') #retrive the client id from the urm
+        # Pass schema_name to serializer from client_id query param
+        if not client_id : 
+            raise ValidationError("client_id is required")
+        
+        try : 
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist : 
+            raise NotFound("client with this id not found")
+        context['schema_name'] = client.schema_name
+        return context
 # Create your views here.
 
 
