@@ -17,6 +17,7 @@ User = get_user_model()
 class AddClientWithUserSerializer(serializers.ModelSerializer):
     # email , password  to create the user will be associated with the client
     email = serializers.EmailField()
+    role= serializers.CharField()
     password = serializers.CharField(write_only=True)
     telephone = serializers.CharField(write_only=True)
 
@@ -26,7 +27,7 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
         model = Client
         fields = [
             'id',
-            'email', 'password',
+            'email', 'password', 'role' ,
             'nom_entreprise', 'adresse', 'latitude',
             'longitude', 'industrie', 'nom_resp', 'prenom_resp', 'status' , 'telephone' , 'schema_name'
         ]
@@ -45,12 +46,13 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
         telephone = validated_data.pop('telephone')
         #username = validated_data.pop('username')
         nom_entreprise = validated_data.get('nom_entreprise')
+        role = validated_data.pop('role')
 
         # Generate schema_name from company name
         schema_name = self.generate_schema_name(nom_entreprise)
 
         # Create user instance
-        user = User.objects.create_user(email=email, password=password ,telephone=telephone)
+        user = User.objects.create_user(email=email, password=password ,telephone=telephone , role=role)
 
         # Create tenant (client)
         client = Client.objects.create(

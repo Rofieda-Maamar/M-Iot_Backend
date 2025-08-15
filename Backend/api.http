@@ -4,8 +4,8 @@
     Content-Type: application/json
     
     {
-        "email" : "client@example.com",
-        "password": "SecurePassword123"
+        "email" : "mr_maamar+2@esi.dz",
+        "password": "123456"
       
     }
 
@@ -64,10 +64,11 @@
     Content-Type:application/json 
 
     {
-        "email": "mr_maamar@esi.dz",
+        "email": "mr_maamar+2@esi.dz",
         "password": "123456",
         "telephone": "0551234567",
-        "nom_entreprise": "miro",
+        "nom_entreprise": "mira",
+        "role" :"client",
         "adresse": "Baraki, Alger, Algérie",
         "latitude": "36.7538",
         "longitude": "3.0588",
