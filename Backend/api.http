@@ -80,39 +80,6 @@
 
 
 ###
-    POST http://nomentrprise.localhost:8000/api/site/add-site/?client_id=2 HTTP/1.1
-    Content-Type:application/json 
-
-    
-        {
-            "nom": "Site B",
-            "adresse": "123 Main St",
-            "latitude": 36.75,
-            "longitude": 3.04,
-            "asset_tracking": true,
-            "parametre": [
-                {
-                    "nom": "temperateur",
-                    "unite": "Celsius",
-                    "valeur_max": 100,
-                    "capture": {
-                        "num_serie": "Capture8",
-                        "date_install": "2025-08-09",
-                        "date_dernier_serveillance": "2025-08-10"
-                    }
-                },
-                {
-                    "nom": "humidite",
-                    "unite": "%",
-                    "valeur_max": 80,
-                    "capture": {
-                        "num_serie": "Capture9",
-                        "date_install": "2025-08-09",
-                        "date_dernier_serveillance": "2025-08-10"
-                    }
-                }
-            ]
-        }
 
     
 
@@ -120,7 +87,7 @@
 
 
 ###
-    POST http://nomentrprise.localhost:8000/api/machine/add-machine/ HTTP/1.1
+    POST http://127.0.0.1:8000/api/machine/add-machine/?client_id=2 HTTP/1.1
     Content-Type:application/json 
 
     {
@@ -132,7 +99,7 @@
         {
             "num_serie": "C-001",
             "date_install": "2025-08-13",
-            "parametres": [
+            "parametre": [
                 {"nom": "temperature", "unite": "°C", "valeur_max": 100},
                 {"nom": "voltage", "unite": "v", "valeur_max": 10}
             ]
@@ -140,14 +107,14 @@
         {
             "num_serie": "C-002",
             "date_install": "2025-08-13",
-            "parametres": [
+            "parametre": [
                 {"nom": "humidite", "unite": "%", "valeur_max": 80}
             ]
         },
         {
             "num_serie": "C-003",
             "date_install": "2025-08-13",
-            "parametres": [
+            "parametre": [
                 {"nom": "vibration", "unite": "Hz", "valeur_max": 500}
             ]
         }

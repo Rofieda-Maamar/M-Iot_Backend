@@ -6,7 +6,7 @@ class Machine(models.Model):
         ('inactive','inactive')
     ]
     site              = models.ForeignKey('sites.Site', on_delete=models.CASCADE, related_name='machines')
-    identificateur    = models.CharField(max_length=100)
+    identificateur    = models.CharField(max_length=100, unique=True)
     status              = models.CharField(max_length=20 ,choices=status_choices, default='active')
     #date_installation = models.DateTimeField()
     date_dernier_serv = models.DateTimeField(null=True, blank=True)

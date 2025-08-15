@@ -10,7 +10,6 @@ from rest_framework.permissions import IsAuthenticated
 from tenants.models import Client
 from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import timedelta
-
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response

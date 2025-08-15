@@ -1,0 +1,35 @@
+###
+POST http://127.0.0.1:8000/api/machine/add-machine/?client_id=2 HTTP/1.1
+Content-Type:application/json 
+
+    {
+    "site": 1,
+    "identificateur": "M-125",
+    "status": "active",
+    "date_installation": "2025-08-13T10:00:00Z",
+    "captures": [
+        {
+            "num_serie": "C-04",
+            "date_install": "2025-08-13",
+            "parametre": [
+                {"nom": "temperature", "unite": "°C", "valeur_max": 100},
+                {"nom": "voltage", "unite": "v", "valeur_max": 10}
+            ]
+        },
+        {
+            "num_serie": "C-05",
+            "date_install": "2025-08-13",
+            "parametre": [
+                {"nom": "humidite", "unite": "%", "valeur_max": 80}
+            ]
+        },
+        {
+            "num_serie": "C-06",
+            "date_install": "2025-08-13",
+            "parametre": [
+                {"nom": "vibration", "unite": "Hz", "valeur_max": 500}
+            ]
+        }
+    ]
+}
+
