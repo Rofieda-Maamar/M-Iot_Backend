@@ -1,7 +1,7 @@
 from rest_framework import serializers 
 from .models import TypeParametre , CaptureSite , TypeParametre , TagRfid
-
-
+from rest_framework.exceptions import ValidationError
+from django_tenants.utils import schema_context
 
 class TypeParametreSerializer (serializers.ModelSerializer) :
     class Meta : 
