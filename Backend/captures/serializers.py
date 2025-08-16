@@ -15,9 +15,10 @@ class TypeParametreSerializer (serializers.ModelSerializer) :
 class CaptureSiteSerializer(serializers.ModelSerializer) : 
     # parametres inside capture bcs multiple parametres can be measured by the same capture 
     parametres = TypeParametreSerializer(many = True)
+    status = serializers.ReadOnlyField()
     class Meta : 
         model = CaptureSite
-        fields = ['num_serie' , 'date_install' ,  "parametres"] 
+        fields = ['num_serie' , 'date_install' ,  "parametres" , 'status'] 
 
     def create(self, validated_data):
         parametre_data = validated_data.pop('parametres' , [])

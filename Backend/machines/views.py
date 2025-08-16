@@ -1,10 +1,12 @@
 from django.shortcuts import render
 from rest_framework import generics , status
-from .serializers import MachineAddSerializer
+from .serializers import MachineAddSerializer , DisplayMachinesSerializer
 from rest_framework.response import Response
 import csv
 import io
 from tenants.models import Client
+from rest_framework.exceptions import ValidationError
+from .models import Machine
 from rest_framework.exceptions import NotFound
 from django_tenants.utils import schema_context
 # Create your views here.
@@ -88,3 +90,34 @@ class MachineListUploadView(generics.GenericAPIView):
                 errors.append({"row": idx, "errors": serializer.errors})
 
         return Response({"created": results, "errors": errors}, status=status.HTTP_201_CREATED)
+
+
+class DisplayMachineView(generics.ListAPIView) : 
+    queryset = Machine.objects.all()
+    serializer_class = DisplayMachinesSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        client_id = self.request.query_params.get("client_id")
+        if not client_id:
+            raise ValidationError("client_id is required to list sites for a tenant.")
+
+        try : 
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist: 
+            raise NotFound("Client with this id was not found")
+        
+        # Add schema name to context
+        context['schema_name'] = client.schema_name
+        return context
+
+    def list(self, request, *args, **kwargs):
+        schema_name = self.get_serializer_context().get('schema_name')
+        machine_id = request.query_params.get("machine_id")
+
+        with schema_context(schema_name):
+            queryset = Machine.objects.filter(id=machine_id)
+            if machine_id : 
+                queryset = queryset.filter(id=machine_id)
+            serializer = self.get_serializer(queryset , many = True)
+            return Response(serializer.data)

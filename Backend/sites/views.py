@@ -2,12 +2,11 @@ from django.shortcuts import render
 from rest_framework import generics
 from .models import Site
 from tenants.models import Client
-from .serializers import SiteSerializer , SiteDisplaySerializer , SiteUpdateSerializer
+from .serializers import SiteSerializer , SiteDisplaySerializer , SiteUpdateSerializer , SiteCapturesDisplaySerializer
 from django_tenants.utils import schema_context
 from rest_framework.exceptions import ValidationError, NotFound
-
 from rest_framework.response import Response
-
+from rest_framework.views import APIView
 
 class CreatSiteView (generics.CreateAPIView) : 
     serializer_class = SiteSerializer
@@ -101,3 +100,28 @@ class UpdateSiteDetail(generics.UpdateAPIView) :
         schema_name = self.get_serializer_context().get('schema_name')
         with schema_context(schema_name):
             return super().update(request, *args, **kwargs)
+        
+class SiteCapturesDisplayView(APIView) : 
+    def get(self, request, *args, **kwargs):
+        client_id = request.query_params.get("client_id")
+        site_id = kwargs.get("pk") or request.query_params.get("site_id")
+
+        if not client_id:
+            raise ValidationError("client_id is required")
+
+        try:
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist:
+            raise NotFound("Client with this id was not found")
+
+        schema_name = client.schema_name
+
+        # ✅ Ensure query is executed inside schema_context
+        with schema_context(schema_name):
+            try:
+                site = Site.objects.get(id=site_id)
+            except Site.DoesNotExist:
+                raise NotFound("Site not found")
+
+            serializer = SiteCapturesDisplaySerializer(site)
+            return Response(serializer.data)

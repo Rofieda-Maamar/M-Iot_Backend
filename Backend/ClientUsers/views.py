@@ -1,13 +1,15 @@
 from django.shortcuts import render
 from rest_framework import generics , status
 from .models import ClientUser 
-from .serializers import ClientUserSerializer
+from .serializers import ClientUserSerializer ,displayListUsersClientSerializer
 import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError , NotFound
 from tenants.models import Client
 from django_tenants.utils import schema_context
+from sites.models import Site
+
 class AddClientUserView(generics.CreateAPIView):
     serializer_class=ClientUserSerializer
 
@@ -83,3 +85,29 @@ class UploadClientUserView(APIView):
             return Response({"created": created_users, "errors": errors}, status=status.HTTP_207_MULTI_STATUS)
 
         return Response({"created": created_users}, status=status.HTTP_201_CREATED)
+    
+
+class displayListUsersClientView(APIView) :
+    serializer_class = displayListUsersClientSerializer
+    def get(self, request, *args, **kwargs):
+        client_id = request.query_params.get("client_id")
+        site_id = kwargs.get("pk") or request.query_params.get("site_id")
+        if not client_id:
+            raise ValidationError("client_id is required")
+
+        try:
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist:
+            raise NotFound("Client with this id was not found")
+        
+
+        schema_name = client.schema_name
+
+        # ✅ Ensure query is executed inside schema_context
+        with schema_context(schema_name):
+            users = ClientUser.objects.filter(site_id=site_id)
+            if not users.exists() : 
+                raise NotFound("No user found for this Site")
+
+            serializer =  self.serializer_class(users, many=True)
+            return Response(serializer.data)

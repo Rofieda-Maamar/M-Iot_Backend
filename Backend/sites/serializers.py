@@ -59,3 +59,11 @@ class SiteUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Site
         fields = ['adresse']
+
+
+class SiteCapturesDisplaySerializer (serializers.ModelSerializer) : 
+    captures = CaptureSiteSerializer(many=True)
+
+    class Meta : 
+        model = Site
+        fields = ['captures']

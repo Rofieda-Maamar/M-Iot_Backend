@@ -53,3 +53,12 @@ class MachineAddSerializer(serializers.ModelSerializer) :
                 capture_serializer.is_valid(raise_exception=True)
                 capture_serializer.save(machine=machine)
             return machine
+        
+
+
+
+class DisplayMachinesSerializer(serializers.ModelSerializer) : 
+    captures = CaptureMachineAddSerializer(many = True)
+    class Meta : 
+        model = Machine
+        fields =['identificateur' , 'status' ,'date_dernier_serv' , 'captures']

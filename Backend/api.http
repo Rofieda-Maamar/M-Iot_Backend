@@ -98,7 +98,7 @@
 #curl -X POST "http://127.0.0.1:8000/api/captures/upload-tag-rfid/?client_id=2" \ -F "file=@tagrfid1.xlsx" \ -F "site=1"
 
 
-#consulter detail de client voir le detail de site de client 
+#consulter detail de client -> voir le detail de site de client 
 ###
 GEt http://127.0.0.1:8000/api/site/sites/?client_id=1&site_id=1 HTTP/1.1
 
@@ -106,7 +106,7 @@ GEt http://127.0.0.1:8000/api/site/sites/?client_id=1&site_id=1 HTTP/1.1
 
 
 
-### 5 is the site id , 2 is the client id 
+### 2 is the site id , 2 is the client id 
 PATCH  http://127.0.0.1:8000/api/site/update-site/2/?client_id=2  
 Content-Type: application/json
 
@@ -114,3 +114,24 @@ Content-Type: application/json
 {
   "adresse": "42 Rue de Paris"
 }
+
+### 
+
+GET  http://127.0.0.1:8000/api/machine/machines/?client_id=2&machine_id=2
+
+
+
+
+
+###
+
+GET http://127.0.0.1:8000/api/site/captures-site/2/?client_id=2   
+
+
+
+###
+
+GET http://127.0.0.1:8000/api/clientUsers/list-clientuser/?client_id=1&site_id=2
+
+
+

@@ -9,7 +9,7 @@ class ClientUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     telephone = serializers.CharField(write_only=True)
     role = serializers.CharField(write_only=True)
-    
+
     created_email = serializers.CharField(read_only=True)
 
     class Meta : 
@@ -54,3 +54,21 @@ class ClientUserSerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         ret['created_email'] = getattr(instance, 'created_email', None)
         return ret
+    
+
+
+class displayListUsersClientSerializer(serializers.ModelSerializer) :
+    email = serializers.SerializerMethodField()
+    telephone = serializers.SerializerMethodField()
+
+    class Meta : 
+        model = ClientUser 
+        fields = ['email' ,'telephone' , 'role' , 'status']
+
+    def get_email(self, obj):
+        user = obj.get_user()
+        return user.email if user else None
+
+    def get_telephone(self, obj):
+        user = obj.get_user()
+        return user.telephone if user else None
