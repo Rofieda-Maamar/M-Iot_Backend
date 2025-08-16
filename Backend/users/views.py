@@ -22,11 +22,58 @@ class AddUserView(generics.CreateAPIView) :  # creatApiView hendle : post , call
     serializer_class=UserSerializer
     #permission_classes = [IsAuthenticated, IsAjoutdescomptes]
 
+'''class AddAdminView(generics.CreateAPIView):
+    queryset = Admin.objects.all()
+    serializer_class = AdminSerializer
+    #permission_classes = [IsAuthenticated, IsAjoutdescomptes]
+'''
 class AddAdminView(generics.CreateAPIView):
     queryset = Admin.objects.all()
     serializer_class = AdminSerializer
     #permission_classes = [IsAuthenticated, IsAjoutdescomptes]
 
+    def perform_create(self, serializer):
+        from django_tenants.utils import schema_context
+        from tenants.models import Client
+        
+        # Create admin in public schema
+        admin = serializer.save()
+        
+        # Get the created user and admin data
+        user = admin.user
+        
+        # Add the admin to all existing tenant schemas
+        for client in Client.objects.all():
+            try:
+                with schema_context(client.schema_name):
+                    # Check if user already exists in this tenant
+                    existing_user = User.objects.filter(email=user.email).first()
+                    if not existing_user:
+                        # Create user in tenant schema
+                        tenant_user = User.objects.create_user(
+                            email=user.email,
+                            password=user.password,  # Already hashed
+                            telephone=user.telephone,
+                            role=user.role,
+                            logged_in=user.logged_in,
+                            logged_out=user.logged_out
+                        )
+                    else:
+                        tenant_user = existing_user
+                    
+                    # Check if admin already exists for this user in tenant
+                    if not Admin.objects.filter(user=tenant_user).exists():
+                        Admin.objects.create(
+                            user=tenant_user,
+                            nom=admin.nom,
+                            prenom=admin.prenom,
+                            role=admin.role,
+                            status=admin.status
+                        )
+                        print(f"Created admin {admin.nom} {admin.prenom} in tenant {client.schema_name}")
+            except Exception as e:
+                print(f"Error creating admin in tenant {client.schema_name}: {str(e)}")
+                continue
 class AdminListView(generics.ListAPIView):
     queryset = Admin.objects.select_related('user').all()
     serializer_class = AdminListSerializer
