@@ -121,7 +121,7 @@ class CookieTokenRefreshView(TokenRefreshView):
         # Get refresh token from cookie
         refresh_token = request.COOKIES.get('refreshToken')
 
-        if refresh_token is None:
+        if not refresh_token :
             return Response({'detail': 'Refresh token not provided'}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(data={'refresh': refresh_token})
