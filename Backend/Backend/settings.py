@@ -60,6 +60,8 @@ SHARED_APPS = [
     'django_extensions',
     'rest_framework',
     'django_rest_passwordreset',
+     'django_filters',
+   
 
 ]
 
@@ -91,6 +93,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication', # to continue use the django admin 
+    ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
     ],
 }
 
@@ -140,10 +145,10 @@ WSGI_APPLICATION = 'Backend.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": "mast_miot",
+        "NAME": "miot_last_last",
         "USER": "rofieda",
-        "PASSWORD": "GdsGrorBjGbVvvGGNv9tOby73XkijyP2",
-        "HOST": "dpg-d2ec38odl3ps73a49i6g-a.oregon-postgres.render.com",
+        "PASSWORD": "873v58IFufxg2JnTCv0Rxjd14rB7J3wA",
+        "HOST": "dpg-d2gccljuibrs73e7jmi0-a.oregon-postgres.render.com",
         "PORT": "5432",
     }
 }
@@ -183,6 +188,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+# Media files (uploaded files)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

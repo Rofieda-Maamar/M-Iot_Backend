@@ -3,12 +3,12 @@
     Content-Type:application/json 
 
     {
-        "email": "mr_maamar+2@esi.dz",
+        "email": "mr_maamar+4@esi.dz",
         "password": "123456",
         "telephone": "0551234567",
-        "nom_entreprise": "mira",
+        "nom_entreprise": "Rofieda",
         "role" :"client",
-        "adresse": "Baraki, Alger, Algérie",
+        "adresse": "Baraki",
         "latitude": "36.7538",
         "longitude": "3.0588",
         "industrie": "Construction",

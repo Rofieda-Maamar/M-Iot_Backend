@@ -42,4 +42,3 @@ class MachineParametre(models.Model):
     parametre         = models.ForeignKey(Parametre, on_delete=models.CASCADE)
     valeur            = models.FloatField()
     date_heure        = models.DateTimeField()
-

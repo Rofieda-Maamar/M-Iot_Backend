@@ -1,12 +1,13 @@
 from django.shortcuts import render
-from .Serializers import UserSerializer , ChangePasswordSerializer
-from rest_framework import generics
-from .models import User
+from .Serializers import AdminDeactivateSerializer, AdminDetailSerializer, AdminListSerializer, AdminUpdateSerializer, UserSerializer , ChangePasswordSerializer , AdminSerializer
+from rest_framework import generics ,filters
+from .models import User , Admin
 from django.utils.http import urlsafe_base64_decode
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from rest_framework.permissions import IsAuthenticated
+from users.permissions import IsAdminUser ,  IsAjoutdescomptes
 from tenants.models import Client
 from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import timedelta
@@ -18,13 +19,104 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
+from rest_framework import filters
+from django_filters.rest_framework import DjangoFilterBackend
 
 class AddUserView(generics.CreateAPIView) :  # creatApiView hendle : post , call the serializer , validat the data , calls .creat, and return the response
     queryset= User.objects.all()
     serializer_class=UserSerializer
+    #permission_classes = [IsAuthenticated, IsAjoutdescomptes]
+
+'''class AddAdminView(generics.CreateAPIView):
+    queryset = Admin.objects.all()
+    serializer_class = AdminSerializer
+    #permission_classes = [IsAuthenticated, IsAjoutdescomptes]
+'''
+class AddAdminView(generics.CreateAPIView):
+    queryset = Admin.objects.all()
+    serializer_class = AdminSerializer
+    #permission_classes = [IsAuthenticated, IsAjoutdescomptes]
+
+    def perform_create(self, serializer):
+        from django_tenants.utils import schema_context
+        from tenants.models import Client
+        
+        # Create admin in public schema
+        admin = serializer.save()
+        
+        # Get the created user and admin data
+        user = admin.user
+        
+        # Add the admin to all existing tenant schemas
+        for client in Client.objects.all():
+            try:
+                with schema_context(client.schema_name):
+                    # Check if user already exists in this tenant
+                    existing_user = User.objects.filter(email=user.email).first()
+                    if not existing_user:
+                        # Create user in tenant schema
+                        tenant_user = User.objects.create_user(
+                            email=user.email,
+                            password=user.password,  # Already hashed
+                            telephone=user.telephone,
+                            role=user.role,
+                            logged_in=user.logged_in,
+                            logged_out=user.logged_out
+                        )
+                    else:
+                        tenant_user = existing_user
+                    
+                    # Check if admin already exists for this user in tenant
+                    if not Admin.objects.filter(user=tenant_user).exists():
+                        Admin.objects.create(
+                            user=tenant_user,
+                            nom=admin.nom,
+                            prenom=admin.prenom,
+                            role=admin.role,
+                            status=admin.status
+                        )
+                        print(f"Created admin {admin.nom} {admin.prenom} in tenant {client.schema_name}")
+            except Exception as e:
+                print(f"Error creating admin in tenant {client.schema_name}: {str(e)}")
+                continue
+class AdminListView(generics.ListAPIView):
+    queryset = Admin.objects.select_related('user').all()
+    serializer_class = AdminListSerializer
+   # permission_classes = [IsAuthenticated, IsAdminUser]
+
+class AdminDetailView(generics.RetrieveAPIView):
+    #permission_classes = [IsAuthenticated, IsAdminUser]
+    queryset = Admin.objects.select_related('user').all()
+    serializer_class = AdminDetailSerializer
+    lookup_field = 'id'
 
 
+class AdminUpdateAPIView(generics.UpdateAPIView):
+    queryset = Admin.objects.select_related('user')
+    serializer_class = AdminUpdateSerializer
+    lookup_field = 'id'
+    #permission_classes = [IsAuthenticated, IsAdminUser]
+    
 
+class AdminDeactivateAPIView(generics.UpdateAPIView):
+    queryset = Admin.objects.all()
+    serializer_class = AdminDeactivateSerializer
+    lookup_field = 'id'
+    #permission_classes = [IsAuthenticated, IsAdminUser]
+
+   
+class AdminSearchAPIView(generics.ListAPIView):
+    queryset = Admin.objects.select_related('user').all()
+    serializer_class = AdminListSerializer
+    #permission_classes = [IsAuthenticated, IsAdminUser]
+
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+
+    # Full-text search
+    search_fields = ['nom', 'prenom', 'user__email', 'user__telephone', 'status', 'role']
+
+    # Exact match filters (optional if you want ?status=active for example)
+    filterset_fields = ['status', 'role']
 User = get_user_model()
 
 def verify_email(request, uidb64, token):

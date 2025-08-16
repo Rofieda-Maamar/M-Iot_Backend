@@ -14,49 +14,44 @@ from sites.serializers import SiteNameSerializer
 from sites.models import Site
 from rest_framework.exceptions import ValidationError
 from django_tenants.utils import schema_context
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
 
 User = get_user_model()
 
-
 class AddClientWithUserSerializer(serializers.ModelSerializer):
-    # email , password  to create the user will be associated with the client
     email = serializers.EmailField()
-    role= serializers.CharField()
     password = serializers.CharField(write_only=True)
     telephone = serializers.CharField(write_only=True)
-
-  #  username = serializers.CharField()
 
     class Meta:
         model = Client
         fields = [
-            'id',
-            'email', 'password', 'role' ,
+            'email', 'password',
             'nom_entreprise', 'adresse', 'latitude',
-            'longitude', 'industrie', 'nom_resp', 'prenom_resp', 'status' , 'telephone' , 'schema_name'
+            'longitude', 'industrie', 'nom_resp', 'prenom_resp', 'status', 'telephone'
         ]
-        read_only_fields = ['schema_name']  # it’s not required on input
 
-    @staticmethod # the function don't depend to the class , i can call it everywhere 
+    @staticmethod
     def generate_schema_name(nom_entreprise):
-        #Removes non-alphanumeric characters from the nom_entrprise 
-        # field so i can use it for the schmea_name (and the domain) for this client (tennant)
-        #  that will creat
-        return re.sub(r'\W+', '', nom_entreprise.lower()) 
+        import re
+        return re.sub(r'\W+', '', nom_entreprise.lower())
 
     def create(self, validated_data):
+        from django_tenants.utils import schema_context
+        from users.models import User, Admin
+
         email = validated_data.pop('email')
         password = validated_data.pop('password')
         telephone = validated_data.pop('telephone')
-        #username = validated_data.pop('username')
         nom_entreprise = validated_data.get('nom_entreprise')
-        role = validated_data.pop('role')
 
-        # Generate schema_name from company name
         schema_name = self.generate_schema_name(nom_entreprise)
 
-        # Create user instance
-        user = User.objects.create_user(email=email, password=password ,telephone=telephone , role=role)
+        # Create user instance in public schema with role 'Client'
+        user = User.objects.create_user(email=email, password=password, telephone=telephone, role='Client')
 
         # Create tenant (client)
         client = Client.objects.create(
@@ -67,12 +62,62 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
 
         # Create domain for the tenant (client)
         Domain.objects.create(
-            domain=f"{schema_name}.localhost",  # for production (deploy) i think somthings must change here
+            domain=f"{schema_name}.localhost",
             tenant=client,
             is_primary=True
         )
+
+        # Get only admin users and their admin data from public schema
+        admin_users = list(User.objects.filter(role='admin'))
+        public_admins = []
         
+        # Create a list of admin data with user email instead of user object
+        for admin in Admin.objects.all():
+            public_admins.append({
+                'user_email': admin.user.email,
+                'nom': admin.nom,
+                'prenom': admin.prenom,
+                'role': admin.role,
+                'status': admin.status
+            })
+
+        # Copy all users and admins from public schema to tenant schema
+        with schema_context(client.schema_name):
+            # Copy only admin users
+            for admin_user in admin_users:
+                try:
+                    # Check if user already exists in tenant schema
+                    existing_user = User.objects.filter(email=admin_user.email).first()
+                    if not existing_user:
+                        tenant_user = User.objects.create_user(
+                            email=admin_user.email,
+                            password=admin_user.password,  # Note: password is hashed
+                            telephone=admin_user.telephone,
+                            role=admin_user.role,
+                            logged_in=admin_user.logged_in,
+                            logged_out=admin_user.logged_out
+                        )
+                    else:
+                        tenant_user = existing_user
+                    
+                    # Copy admin if exists for this user and doesn't already exist
+                    public_admin = next((admin for admin in public_admins if admin['user_email'] == admin_user.email), None)
+                    if public_admin and not Admin.objects.filter(user=tenant_user).exists():
+                        Admin.objects.create(
+                            user=tenant_user,
+                            nom=public_admin['nom'],
+                            prenom=public_admin['prenom'],
+                            role=public_admin['role'],
+                            status=public_admin['status']
+                        )
+                        print(f"Created admin for user: {tenant_user.email}")  # Debug line
+                except Exception as e:
+                    print(f"Error copying user {admin_user.email}: {str(e)}")  # Debug line
+                    continue
+
         # Send verification email to the client email
+        
+
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
         verify_url = f"http://127.0.0.1:8000/api/user/verify-email/{uid}/{token}/"
@@ -80,13 +125,12 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
         send_mail(
             subject="Verify your email",
             message=f"Welcome to M-IOT!\nClick the link to verify your account:\n{verify_url}",
-            from_email='M-IOT <maamarmira005@gmail.com>' ,
+            from_email='M-IOT <maamarmira005@gmail.com>',
             recipient_list=[email],
             fail_silently=False,
         )
 
         return client
-    
 
 class ClientListSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source = 'user.email' , read_only = True)

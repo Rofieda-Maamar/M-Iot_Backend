@@ -1,5 +1,7 @@
 # tenants/models.py
+
 from django_tenants.models import TenantMixin, DomainMixin
+
 from django.db import models
 from django.conf import settings
 
