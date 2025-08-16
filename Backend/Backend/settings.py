@@ -199,16 +199,13 @@ CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
+
+
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
     "x-csrftoken",
-    "x-requested-with",
 ]
 
 
@@ -216,3 +213,6 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     
 ]
+
+samesite="None"
+secure=True
