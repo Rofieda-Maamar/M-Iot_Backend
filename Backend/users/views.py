@@ -122,7 +122,7 @@ class CookieTokenRefreshView(TokenRefreshView):
         refresh_token = request.COOKIES.get('refreshToken')
 
         if not refresh_token :
-            return Response({'detail': 'Refresh token not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'Erreur Hna ': 'Refresh token not provided'}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(data={'refresh': refresh_token})
         serializer.is_valid(raise_exception=True)
