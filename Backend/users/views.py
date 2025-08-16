@@ -14,6 +14,8 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.views import TokenRefreshView
 
 
 
@@ -108,3 +110,21 @@ class LoginView(TokenObtainPairView):
         )
 
         return response
+    
+
+
+class CookieTokenRefreshView(TokenRefreshView):
+    
+    serializer_class = TokenRefreshSerializer
+
+    def post(self, request, *args, **kwargs):
+        # Get refresh token from cookie
+        refresh_token = request.COOKIES.get('refreshToken')
+
+        if refresh_token is None:
+            return Response({'detail': 'Refresh token not provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(data={'refresh': refresh_token})
+        serializer.is_valid(raise_exception=True)
+
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
