@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework import generics , status
-from .Serializers import MachineAddSerializer , DisplayMachinesSerializer ,CaptureMachineSerializer
+from .serializers import MachineAddSerializer , DisplayMachinesSerializer ,CaptureMachineSerializer
 from rest_framework.response import Response
 import csv
 import io
