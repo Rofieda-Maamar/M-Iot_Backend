@@ -9,9 +9,6 @@ from rest_framework.exceptions import NotFound
 from django_tenants.utils import schema_context
 # Create your views here.
 
-class CreatMachineView(generics.CreateAPIView) : 
-    serializer_class = MachineAddSerializer
-
 
 
 class CreatMachineView(generics.CreateAPIView) : 

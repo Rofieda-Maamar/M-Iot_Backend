@@ -52,3 +52,10 @@ class SiteDisplaySerializer(serializers.ModelSerializer):
         # Get all parametre names for this site
         param_names = obj.parametre.values_list('nom', flat=True)
         return list(param_names)
+    
+
+class SiteUpdateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Site
+        fields = ['adresse']
