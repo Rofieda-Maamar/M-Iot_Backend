@@ -1,5 +1,5 @@
 from django.db import models
-
+from sites.models import Site 
 # Create your models here.
 class ClientUser(models.Model):
     status_choices = [ 
@@ -9,7 +9,9 @@ class ClientUser(models.Model):
     user_id = models.BigIntegerField(unique=True)  # just store the ID of the user,without fk 
     # bcs the user is on the public , unique : no clientUser with multiple users 
     status = models.CharField(max_length=20 , choices=status_choices, default='active')
-    role = models.CharField(max_length=50)
+    role = models.CharField(max_length=50) # here must have defined values 
+    site_id =models.ForeignKey(Site , on_delete=models.SET_NULL , null=True , blank=False)
+
 
 # method that retrieves the actual User instance 
 # using the stored user_id 

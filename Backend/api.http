@@ -4,19 +4,15 @@
     Content-Type: application/json
     
     {
-        "email" : "mr_maamar@esi.dz",
-        "password" :"@1234567@maamar"
+        "email" : "mr_maamar+2@esi.dz",
+        "password": "123456"
+      
     }
 
 
 ###
     POST http://127.0.0.1:8000/api/user/token/refresh/ HTTP/1.1
-    Content-Type: application/json 
-
-    { 
-        "refresh" : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc1NDQ0MTkxNCwiaWF0IjoxNzU0MzU1NTE0LCJqdGkiOiI3YzU0YzJlNzE1N2Q0ZjM1YTZjNGFiMTM0ZjI2MjYyNyIsInVzZXJfaWQiOjF9.kf--4iGUCq_fA_C88iG6j-LcAA8ZhVVRPR7WZmqVkuM"
-    }
-
+ 
 ### 
     PUT  http://127.0.0.1:8000/api/user/change-password/ HTTP/1.1
     Content-Type:application/json 
@@ -53,62 +49,53 @@
     GET http://127.0.0.1:8000/api/tenants/clients/ HTTP/1.1
     Content-Type:application/json
     
+
+
+
+  #   i should start correcting from this one 
 ###
-    GET http://nomentrprise.localhost:8000/api/tenants/clients/1/ HTTP/1.1
+    GET http://127.0.0.1:8000/api/tenants/clients/4/ HTTP/1.1
 
 ###
-# TTN7A hadi 
-    POST http://nomentrprise.localhost:8000/api/site/add-site/ HTTP/1.1
+
+
+
+    
+
+
+
+
+###
+
+
+###
+  POST http://nomentrprise.localhost:8000/api/clientUsers/upload-clientuser/ HTTP/1.1
+    Content-Type: multipart/form-data
+
+    file: ./Book1.xlsx
+
+
+#curl -X POST "http://127.0.0.1:8000/api/ClientUsers/upload-clientuser/" -F "file=@Book1.xlsx"
+
+###
+    POST http://127.0.0.1:8000/api/captures/add-tag-rfid/?client_id=2 HTTP/1.1
     Content-Type:application/json 
-
-    { 
-        "nom" :"Site2",
-        "adresse":"Baraki - Alger" , 
-        "latitude":"5" ,
-        "longitude" :"6",
-        "asset_tracking":0
+    
+    {
+        "site" : 1,
+        "num_serie": "Az",
+        "type": "actif",
+        "date_install": "2025-08-14"
     }
 
 
 
-###
-    POST http://clienttest.localhost:8000/api/site/add-site/ HTTP/1.1
-    Content-Type:application/json 
 
-    
-        {
-            "nom": "Site A",
-            "adresse": "Boussada",
-            "latitude": 36.75,
-            "longitude": 3.04,
-            "asset_tracking": true,
-            "parametre": [
-                {
-                    "nom": "temperateur",
-                    "unite": "Celsius",
-                    "valeur_max": 100,
-                    "capture": {
-                        "num_serie": "Capturesite1",
-                        "date_install": "2025-08-09",
-                        "date_dernier_serveillance": "2025-08-10"
-                    }
-                },
-                {
-                    "nom": "humidite",
-                    "unite": "%",
-                    "valeur_max": 80,
-                    "capture": {
-                        "num_serie": "Captursite1",
-                        "date_install": "2025-08-09",
-                        "date_dernier_serveillance": "2025-08-10"
-                    }
-                }
-            ]
-        }
+#curl -X POST "http://127.0.0.1:8000/api/captures/upload-tag-rfid/?client_id=2" \ -F "file=@tagrfid1.xlsx" \ -F "site=1"
 
-    
-###
- GET http://127.0.0.1:8000/api/machines/all-capture-machines/ HTTP/1.1
+
+#consulter detail de client -> voir le detail de site de client 
+### GET http://127.0.0.1:8000/api/machines/all-capture-machines/ HTTP/1.1
     Content-Type:application/json
     
 ###
@@ -126,3 +113,39 @@
     {"url": "http://exemple.com/fichiers/photo2.jpg"}
   ]
 }
+=======
+GEt http://127.0.0.1:8000/api/site/sites/?client_id=1&site_id=1 HTTP/1.1
+
+
+
+
+
+### 2 is the site id , 2 is the client id 
+PATCH  http://127.0.0.1:8000/api/site/update-site/2/?client_id=2  
+Content-Type: application/json
+
+
+{
+  "adresse": "42 Rue de Paris"
+}
+
+### 
+
+GET  http://127.0.0.1:8000/api/machine/machines/?client_id=2&machine_id=2
+
+
+
+
+
+###
+
+GET http://127.0.0.1:8000/api/site/captures-site/2/?client_id=2   
+
+
+
+###
+
+GET http://127.0.0.1:8000/api/clientUsers/list-clientuser/?client_id=1&site_id=2
+
+
+

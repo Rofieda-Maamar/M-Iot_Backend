@@ -23,10 +23,13 @@ urlpatterns = [
     path('api/tenants/', include('tenants.urls')),
     path('api/user/' , include('users.urls')) ,
     path('api/site/' , include('sites.urls')) ,
-    path('api/machines/' , include('machines.urls')) ,
-     path('api/maintenance/', include('maintenance.urls')),
+    path('api/maintenance/', include('maintenance.urls')),
+    path('api/machine/' , include('machines.urls')) ,
+    path('api/clientUsers/' , include('ClientUsers.urls')) ,
+    path('api/captures/' , include('captures.urls')) ,
     path('admin/', admin.site.urls),
    
 ]
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

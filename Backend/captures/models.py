@@ -11,19 +11,23 @@ class CaptureSite(models.Model):
     num_serie              = models.CharField(max_length=100, unique=True)
     status                 = models.CharField(max_length=20 , choices=STATUS_CHOICES , default='active')
     date_install           = models.DateField()
-    date_dernier_serveillance = models.DateField()
+    date_dernier_serveillance = models.DateField(blank=True , null= True)
 
 class TagRfid(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'active'),
+        ('inactive', 'inactive'),
+    ]
     Type_choices = [
         ('actif', 'Actif'),
         ('passif', 'Passif'),
     ]
     site                   = models.ForeignKey('sites.Site', on_delete=models.CASCADE, related_name='rfid_captures')
-    num_serie = models.CharField(max_length=100)
-    status  = models.CharField(max_length=20 , choices=Type_choices, default='actif')
-    type    = models.CharField(max_length=20)
+    num_serie = models.CharField(max_length=100, unique=True)
+    status  = models.CharField(max_length=20,choices=STATUS_CHOICES , default='active' )
+    type    = models.CharField(max_length=20, choices=Type_choices, default='actif')
     date_install           = models.DateField()
-    date_dernier_serveillance = models.DateField()
+    date_dernier_serveillance = models.DateField(null=True, blank=True)
 
 class ObjectTracking(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)

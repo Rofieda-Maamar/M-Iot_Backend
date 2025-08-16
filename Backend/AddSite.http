@@ -1,0 +1,54 @@
+
+
+
+###
+    POST http://127.0.0.1:8000/api/site/add-site/?client_id=1 HTTP/1.1
+    Content-Type:application/json 
+
+        {
+            "nom": "Site D",
+            "adresse": "baraki 1",
+            "latitude": 36.75,
+            "longitude": 3.04,
+            "asset_tracking": false,
+            "captures": [
+                {
+                    "num_serie": "CaptureD",
+                    "date_install": "2025-08-09",
+                    "parametres": [
+                        {
+                            "nom": "temperateur",
+                            "unite": "Celsius",
+                            "valeur_max": 100
+                        }
+                    ]
+                },
+                {
+                    "num_serie": "CaptureF",
+                    "date_install": "2025-08-09",
+                    "parametres": [
+                        {
+                            "nom": "humidite",
+                            "unite": "%",
+                            "valeur_max": 80
+                        }
+                    ]
+                },
+                {
+                    "num_serie": "CaptureG",
+                    "date_install": "2025-08-11",
+                    "parametres": [
+                        {
+                            "nom": "pression",
+                            "unite": "Pa",
+                            "valeur_max": 200
+                        },
+                        {
+                            "nom": "vibration",
+                            "unite": "Hz",
+                            "valeur_max": 500
+                        }
+                    ]
+                }
+            ]
+        }

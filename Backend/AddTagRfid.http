@@ -1,0 +1,16 @@
+###
+POST http://127.0.0.1:8000/api/captures/add-tag-rfid/?client_id=2 HTTP/1.1
+Content-Type:application/json 
+    
+    {
+        "site" : 1,
+        "num_serie": "AD",
+        "type": "actif",
+        "date_install": "2025-08-14"
+    }
+
+
+### u can test the upload tag rfid with this : #curl -X POST "http://127.0.0.1:8000/api/captures/upload-tag-rfid/?client_id=2" \ -F "file=@tagrfid1.xlsx" \ -F "site=1"
+
+# the tagrfid1.xlsx file is in tickets folder 
+# the site_id lazem ykon bcs mchi logique ykon in the file 

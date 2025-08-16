@@ -1,29 +1,45 @@
 from rest_framework import serializers 
-from .models import TypeParametre , CaptureSite , TypeParametre
+from .models import TypeParametre , CaptureSite , TypeParametre , TagRfid
+from rest_framework.exceptions import ValidationError
+from django_tenants.utils import schema_context
+
+class TypeParametreSerializer (serializers.ModelSerializer) :
+    class Meta : 
+        model = TypeParametre 
+        fields = [ 'nom' , 'unite' , 'valeur_max']
+
+
 
 
 
 class CaptureSiteSerializer(serializers.ModelSerializer) : 
+    # parametres inside capture bcs multiple parametres can be measured by the same capture 
+    parametres = TypeParametreSerializer(many = True)
+    status = serializers.ReadOnlyField()
     class Meta : 
         model = CaptureSite
-        fields = [  'num_serie' , 'date_install' , 'date_dernier_serveillance'] 
+        fields = ['num_serie' , 'date_install' ,  "parametres" , 'status'] 
+
     def create(self, validated_data):
+        parametre_data = validated_data.pop('parametres' , [])
         site = self.context.get('site')
-        return CaptureSite.objects.create(site=site, **validated_data)
+        if site is None:
+            raise serializers.ValidationError("site is required in context to create a capture")
+
+        capture = CaptureSite.objects.create(site=site ,**validated_data)
+        # creat paramtres related to the site and capture 
+        for param in parametre_data : 
+            TypeParametre.objects.create(capture=capture , site = site , **param)
+
+        return capture
 
 
-class TypeParametreSerializer (serializers.ModelSerializer) :
-    capture = CaptureSiteSerializer()
+
+
+
+
+
+class TagRfidSerializer(serializers.ModelSerializer) :
     class Meta : 
-        model = TypeParametre 
-        fields = [ 'capture' , 'nom' , 'unite' , 'valeur_max']
-
-    def create(self, validated_data):
-        site = self.context.get('site')
-        capture_data = validated_data.pop('capture')
-        # Create or get capture with the site
-        capture_serializer = CaptureSiteSerializer(data=capture_data, context={'site': site})
-        capture_serializer.is_valid(raise_exception=True)
-        capture = capture_serializer.save()
-
-        return TypeParametre.objects.create(site=site, capture=capture, **validated_data)
+        model = TagRfid
+        fields = ['site' ,'num_serie' , 'type' ,'date_install']

@@ -104,9 +104,9 @@ MIDDLEWARE = [
     'django_tenants.middleware.main.TenantMainMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -145,10 +145,10 @@ WSGI_APPLICATION = 'Backend.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": "miotbdd_q4cm",
+        "NAME": "miot_last_last",
         "USER": "rofieda",
-        "PASSWORD": "SFDGkh1FP7GIx1FV1ZZ7cBFrBr87Y4r8",
-        "HOST": "dpg-d2cvl7qdbo4c73c6a340-a.oregon-postgres.render.com",
+        "PASSWORD": "873v58IFufxg2JnTCv0Rxjd14rB7J3wA",
+        "HOST": "dpg-d2gccljuibrs73e7jmi0-a.oregon-postgres.render.com",
         "PORT": "5432",
     }
 }
@@ -203,12 +203,24 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
-CORS_ALLOW_HEADERS = [
-    "content-type",
+
+
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
     "x-csrftoken",
 ]
+
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    
+]
+
+samesite="None"
+secure=True
