@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework import generics , status
-from .serializers import MachineAddSerializer , DisplayMachinesSerializer ,CaptureMachineSerializer
+from .serializers import *
 from rest_framework.response import Response
 import csv
 import io
@@ -172,3 +172,9 @@ class DisplayMachineView(generics.ListAPIView) :
                 queryset = queryset.filter(id=machine_id)
             serializer = self.get_serializer(queryset , many = True)
             return Response(serializer.data)
+
+
+
+class DisplayMachineDetailView(generics.RetrieveAPIView) : 
+    queryset = Machine.objects.all()
+    serializer_class = DisplayMachinesDetailSerializer

@@ -1,0 +1,8 @@
+    
+    
+ 
+### 
+GET http://rofieda.lvh.me:8000/api/site/site-position/1/
+
+###
+GET http://rofieda.lvh.me:8000/api/machine/machine-detail/1/

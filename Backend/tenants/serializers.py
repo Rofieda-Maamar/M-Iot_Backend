@@ -62,7 +62,7 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
 
         # Create domain for the tenant (client)
         Domain.objects.create(
-            domain=f"{schema_name}.localhost",
+            domain=f"{schema_name}.{settings.TENANT_BASE_DOMAIN}",
             tenant=client,
             is_primary=True
         )

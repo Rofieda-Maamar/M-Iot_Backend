@@ -67,3 +67,11 @@ class SiteCapturesDisplaySerializer (serializers.ModelSerializer) :
     class Meta : 
         model = Site
         fields = ['captures']
+
+
+
+
+class SitePositionSerializer(serializers.ModelSerializer) : 
+    class Meta : 
+        model = Site
+        fields = ['latitude' , 'longitude']

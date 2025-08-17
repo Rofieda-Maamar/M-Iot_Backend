@@ -27,9 +27,9 @@ SECRET_KEY = 'django-insecure-#fu#x72czciro(&dt0-*lxmj1ognxu!bkt60!a63ma@icc7&9)
 DEBUG = True
 ENVIRONMENT = config('ENVIRONMENT', default='development')
 POSTGRES_LOCALLY = config('POSTGRES_LOCALLY', default=False, cast=bool)
-ALLOWED_HOSTS = [
-    '*'
-]
+
+TENANT_BASE_DOMAIN = os.getenv("TENANT_BASE_DOMAIN", "lvh.me")
+ALLOWED_HOSTS = [f".{TENANT_BASE_DOMAIN}", "localhost", "127.0.0.1"]
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST= 'smtp.gmail.com'
@@ -137,7 +137,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'Backend.wsgi.application'
-
+BASE_URL = 'localhost'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -145,10 +145,10 @@ WSGI_APPLICATION = 'Backend.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": "miot_last_last",
-        "USER": "rofieda",
-        "PASSWORD": "873v58IFufxg2JnTCv0Rxjd14rB7J3wA",
-        "HOST": "dpg-d2gccljuibrs73e7jmi0-a.oregon-postgres.render.com",
+        "NAME": "miotbdd_w1bi",
+        "USER": "miotbdd",
+        "PASSWORD": "TNmNaejVyVJma5VLLDI2z9aBoRpyrjTN",
+        "HOST": "dpg-d2gd6ov5r7bs73ev6vb0-a.oregon-postgres.render.com",
         "PORT": "5432",
     }
 }

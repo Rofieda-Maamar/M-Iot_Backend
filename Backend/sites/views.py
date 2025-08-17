@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics
 from .models import Site
 from tenants.models import Client
-from .serializers import SiteSerializer , SiteDisplaySerializer , SiteUpdateSerializer , SiteCapturesDisplaySerializer
+from .serializers import *
 from django_tenants.utils import schema_context
 from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.response import Response
@@ -125,3 +125,8 @@ class SiteCapturesDisplayView(APIView) :
 
             serializer = SiteCapturesDisplaySerializer(site)
             return Response(serializer.data)
+
+
+class SitePositionView(generics.RetrieveAPIView) : 
+    queryset = Site.objects.all()
+    serializer_class = SitePositionSerializer
