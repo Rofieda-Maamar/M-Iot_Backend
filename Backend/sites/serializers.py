@@ -38,8 +38,10 @@ class SiteSerializer(serializers.ModelSerializer) :
                 #bcs the site isn't inside each capture , so pass the created site object to the capture , bcs it include in each capture the site as fk 
                 capture_serializer.is_valid(raise_exception=True)
                 capture_serializer.save()
-            return site
-
+            return site 
+    
+    def to_representation(self, instance):
+        return {'site_id' : instance.id}
 
 class SiteDisplaySerializer(serializers.ModelSerializer): 
     parametre =serializers.SerializerMethodField()
