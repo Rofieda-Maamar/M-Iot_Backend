@@ -1,5 +1,5 @@
 from rest_framework import serializers 
-from .models import TypeParametre , CaptureSite , TypeParametre , TagRfid
+from .models import *
 from rest_framework.exceptions import ValidationError
 from django_tenants.utils import schema_context
 
@@ -43,3 +43,13 @@ class TagRfidSerializer(serializers.ModelSerializer) :
     class Meta : 
         model = TagRfid
         fields = ['site' ,'num_serie' , 'type' ,'date_install']
+
+
+class RealtimeParametreSerializer(serializers.ModelSerializer):
+    nom = serializers.CharField(source='typeParametre.nom')
+    unite = serializers.CharField(source='typeParametre.unite')
+    valeur_max = serializers.DecimalField(source='typeParametre.valeur_max', max_digits=10, decimal_places=2)
+
+    class Meta:
+        model = SiteParametre
+        fields = ['nom', 'unite', 'valeur_max', 'valeur', 'date_heure']

@@ -6,3 +6,12 @@ GET http://rofieda.lvh.me:8000/api/site/site-position/1/
 
 ###
 GET http://rofieda.lvh.me:8000/api/machine/machine-detail/1/
+
+
+###
+
+GET http://rofieda.lvh.me:8000/api/captures/sse/realtime-parametre/?site_id=1
+Accept: text/event-stream
+
+
+curl -N http://rofieda.lvh.me:8000/api/captures/sse/realtime-parametre/?site_id=1

@@ -11,6 +11,11 @@ from rest_framework.response import Response
 from .serializers import TagRfidSerializer 
 from rest_framework import generics
 from tenants.models import Client
+from .models import * 
+import time
+from django.http import StreamingHttpResponse
+import json
+from django.db.models import Max
 
 
 class CreateTagRfidView (generics.CreateAPIView) : 
@@ -114,3 +119,39 @@ class UploadTagRfidUserView(APIView):
         if errors:
             return Response({"created": created_tags, "errors": errors}, status=status.HTTP_207_MULTI_STATUS)
         return Response({"created": created_tags}, status=status.HTTP_201_CREATED)
+    
+
+def sse_realtime_parametre(request):
+    site_id = request.GET.get('site_id')
+    if not site_id:
+        return StreamingHttpResponse("data: []\n\n", content_type='text/event-stream')
+
+    def event_stream():
+        while True:
+            # Get latest SiteParametre for the given site
+            latest_values = SiteParametre.objects.filter(
+                typeParametre__site_id=site_id
+            ).values('typeParametre').annotate(
+                latest_id=Max('id')
+            )
+
+            latest_ids = [v['latest_id'] for v in latest_values]
+            realtime_data = SiteParametre.objects.filter(id__in=latest_ids)
+
+            data = []
+            for param in realtime_data:
+                data.append({
+                    'nom': param.typeParametre.nom,
+                    'unite': param.typeParametre.unite,
+                    'valeur_max': str(param.typeParametre.valeur_max),
+                    'valeur_courante': param.valeur,
+                    'date_heure': param.date_heure.isoformat(),
+                })
+
+            yield f"data: {json.dumps(data)}\n\n"
+            import time
+            time.sleep(5)  # refresh every 5 seconds
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    return response
