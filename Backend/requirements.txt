@@ -18,3 +18,5 @@ tablib==3.8.0
 tzdata==2025.2
 pandas==2.2.3
 openpyxl==3.1.2
+requests==2.31.0
+

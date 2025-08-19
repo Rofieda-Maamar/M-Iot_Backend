@@ -178,16 +178,21 @@ class LoginView(TokenObtainPairView):
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
 
-        # find the related client id 
-        client_id = user.client_account.id
-        subdomain = user.client_account.schema_name
-        # Create response data (no refresh token in JSON)
+        # Initialize response data with common fields
         response_data = {
-            'access': access_token ,
-            'client_id': client_id ,
-            'subdomain' : subdomain ,
-            'role' : user.role
+            'access': access_token,
+            'role': user.role
         }
+
+        # Add client-specific data only for client users
+        if hasattr(user, 'client_account') and user.client_account:
+            response_data['client_id'] = user.client_account.id
+            response_data['subdomain'] = user.client_account.schema_name
+        else:
+            # For admin users, set default values or null
+            response_data['client_id'] = None
+            response_data['subdomain'] = None
+
         response = Response(response_data)
 
         # Set refresh token in HTTP-only cookie

@@ -27,9 +27,9 @@ SECRET_KEY = 'django-insecure-#fu#x72czciro(&dt0-*lxmj1ognxu!bkt60!a63ma@icc7&9)
 DEBUG = True
 ENVIRONMENT = config('ENVIRONMENT', default='development')
 POSTGRES_LOCALLY = config('POSTGRES_LOCALLY', default=False, cast=bool)
-ALLOWED_HOSTS = [
-    '*'
-]
+
+TENANT_BASE_DOMAIN = os.getenv("TENANT_BASE_DOMAIN", "lvh.me")
+ALLOWED_HOSTS = [f".{TENANT_BASE_DOMAIN}", "localhost", "127.0.0.1"]
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST= 'smtp.gmail.com'
@@ -137,7 +137,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'Backend.wsgi.application'
-
+BASE_URL = 'localhost'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -196,6 +196,53 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Configuration pour la géolocalisation avec Nominatim (OpenStreetMap)
+GEOLOCATION_SETTINGS = {
+    # Service de géocodage (Nominatim par défaut)
+    'GEOCODING_SERVICE': 'nominatim',
+    
+    # URL de base pour Nominatim
+    'NOMINATIM_BASE_URL': 'https://nominatim.openstreetmap.org',
+    
+    # User-Agent requis par Nominatim (à personnaliser avec votre email)
+    'NOMINATIM_USER_AGENT': 'M-IoT Backend/1.0 (mrnmeriem9@gmail.com)',
+    
+    # Délai entre les requêtes Nominatim (en secondes)
+    'NOMINATIM_DELAY': 1,
+    
+    # Timeout pour les requêtes (en secondes)
+    'REQUEST_TIMEOUT': 10,
+    
+    # Pays par défaut pour la recherche
+    'DEFAULT_COUNTRY': 'Algeria',
+    
+    # Langue par défaut
+    'DEFAULT_LANGUAGE': 'fr,en',
+    
+    # Distance maximale pour la validation de proximité (en mètres)
+    'MAX_VALIDATION_DISTANCE': 5000,  # 5km
+    
+    # Limite par défaut pour les recherches
+    'DEFAULT_SEARCH_LIMIT': 5,
+    
+    # Cache des résultats (optionnel)
+    'CACHE_ENABLED': True,
+    'CACHE_TIMEOUT': 3600,  # 1 heure
+}
+
+# Configuration des caches (pour optimiser les requêtes de géolocalisation)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 3600,
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+        }
+    }
+}
 
 
 CORS_ALLOWED_ORIGINS = [

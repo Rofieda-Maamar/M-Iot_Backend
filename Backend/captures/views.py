@@ -7,11 +7,25 @@ from sites.models import Site
 import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
-# Create your views here.
-from .serializers import TagRfidSerializer 
+import time  
+from .serializers import (TagRfidSerializer, PlanifierTrajetSerializer, 
+                         TrackingPointSerializer, ObjectTrackingSerializer, 
+                         PathTemplateSerializer, TrajetListSerializer)
 from rest_framework import generics
 from tenants.models import Client
-
+from .services import GeolocationService
+from django.http import StreamingHttpResponse
+import json
+import math
+from django.core.cache import cache
+from datetime import datetime, timedelta
+from .models import MesseurTracking
+from .models import PathTemplate, PathTemplatePoint, MesseurTracking ,TagRfid , TrackingPoint, ObjectTracking ,PositionHistorique
+from datetime import datetime, timedelta
+import random
+from django.utils import timezone
+from django.db import models
+        
 
 class CreateTagRfidView (generics.CreateAPIView) : 
     serializer_class = TagRfidSerializer
@@ -114,3 +128,1855 @@ class UploadTagRfidUserView(APIView):
         if errors:
             return Response({"created": created_tags, "errors": errors}, status=status.HTTP_207_MULTI_STATUS)
         return Response({"created": created_tags}, status=status.HTTP_201_CREATED)
+
+
+# Nouvelles vues pour la planification de trajet
+class TrackingPointListView(generics.ListAPIView):
+    """
+    API pour lister tous les points de tracking disponibles
+    """
+    serializer_class = TrackingPointSerializer
+    
+    def get_queryset(self):
+        return TrackingPoint.objects.all()
+
+
+class ObjectTrackingListView(generics.ListAPIView):
+    """
+    API pour lister tous les objets de tracking disponibles
+    """
+    serializer_class = ObjectTrackingSerializer
+    
+    def get_queryset(self):
+        return ObjectTracking.objects.all()
+
+
+class ObjectTrackingNamesView(APIView):
+    """
+    API pour lister tous les noms d'objets de tracking disponibles
+    """
+    
+    def get(self, request, *args, **kwargs):
+        objets = ObjectTracking.objects.select_related('capture_RFID').all()
+        
+        objets_list = []
+        for obj in objets:
+            nom_objet = f"{obj.categorie}_{obj.capture_RFID.num_serie}"
+            objets_list.append({
+                'id': obj.id,
+                'nom_objet': nom_objet,
+                'categorie': obj.categorie,
+                'num_serie': obj.capture_RFID.num_serie,
+                'etat': obj.etat,
+                'site_id': obj.site.id
+            })
+        
+        return Response(objets_list)
+
+
+'''class PlanifierTrajetView(APIView):
+    """
+    API pour planifier un nouveau trajet
+    """
+    
+    def post(self, request, *args, **kwargs):
+        serializer = PlanifierTrajetSerializer(data=request.data)
+        if serializer.is_valid():
+            result = serializer.save()
+            
+            response_data = {
+                'message': 'Trajet planifié avec succès',
+                'path_template': PathTemplateSerializer(result['path_template']).data,
+                'messeur_tracking_id': result['messeur_tracking'].id
+            }
+            
+            return Response(response_data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+'''
+class PlanifierTrajetView(APIView):
+    """
+    API pour planifier un nouveau trajet
+    """
+    
+    def post(self, request, *args, **kwargs):
+        serializer = PlanifierTrajetSerializer(data=request.data)
+        if serializer.is_valid():
+            # Récupérer l'objet à partir des données du serializer
+            objet_tracking_nom = serializer.validated_data.get('objet_tracking_nom')
+            
+            try:
+                # Trouver l'objet tracking par son nom
+                if '_' in objet_tracking_nom:
+                    categorie, num_serie = objet_tracking_nom.rsplit('_', 1)
+                    objet_tracking = ObjectTracking.objects.select_related('capture_RFID').filter(
+                        categorie=categorie,
+                        capture_RFID__num_serie=num_serie
+                    ).first()
+                else:
+                    objet_tracking = ObjectTracking.objects.filter(categorie=objet_tracking_nom).first()
+                
+                if not objet_tracking:
+                    return Response({
+                        'error': f'Objet tracking "{objet_tracking_nom}" non trouvé.'
+                    }, status=status.HTTP_404_NOT_FOUND)
+                
+                # Vérifier l'état actuel de l'objet
+                etat_actuel = objet_tracking.etat
+                
+                # Vérifier si l'objet a déjà un trajet actif
+                trajet_actif = MesseurTracking.objects.filter(
+                    object_tracking=objet_tracking
+                ).order_by('-date_debut').first()
+                
+                if trajet_actif:
+                    # Si l'objet n'est pas en état "reçu", empêcher la planification
+                    if etat_actuel not in ['reçu', 'recu']:  # Gérer les deux orthographes
+                        return Response({
+                            'error': f'Impossible de planifier un nouveau trajet pour l\'objet "{objet_tracking_nom}".',
+                            'raison': f'L\'objet est actuellement en état "{etat_actuel}" dans un trajet actif.',
+                            'trajet_actif': {
+                                'trajet_id': trajet_actif.path.id,
+                                'nom_trajet': trajet_actif.path.nom,
+                                'etat_objet': etat_actuel,
+                                'source': trajet_actif.path.source,
+                                'destination': trajet_actif.path.destination,
+                                'date_debut': trajet_actif.date_debut.isoformat(),
+                                'lieu_actuel': trajet_actif.lieu,
+                                'date_derniere_maj': trajet_actif.date_prevu.isoformat() if trajet_actif.date_prevu else None,
+                                'heure_derniere_maj': trajet_actif.heure.strftime('%H:%M:%S') if trajet_actif.heure else None
+                            },
+                            'etats_autorises': ['reçu', 'recu'],
+                            'message_details': 'Veuillez attendre que l\'objet soit livré (état "reçu") avant de planifier un nouveau trajet.',
+                            'suggestions': [
+                                'Vérifiez l\'état actuel du trajet en cours',
+                                'Attendez que l\'objet arrive à destination',
+                                'Contactez l\'équipe de logistique si nécessaire'
+                            ]
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Si l'objet est "reçu", procéder directement à la création du nouveau trajet
+                # SUPPRESSION du warning et de la vérification de temps
+                result = serializer.save()
+                
+                # Mettre à jour l'état de l'objet pour le nouveau trajet
+                objet_tracking.etat = 'stocke'  # L'objet commence par être stocké au point de départ
+                objet_tracking.save()
+                
+                response_data = {
+                    'message': 'Trajet planifié avec succès',
+                    'path_template': PathTemplateSerializer(result['path_template']).data,
+                    'messeur_tracking_id': result['messeur_tracking'].id,
+                    'objet_details': {
+                        'nom_objet': objet_tracking_nom,
+                        'etat_precedent': etat_actuel,
+                        'nouvel_etat': 'stocke',
+                        'nouveau_trajet_id': result['path_template'].id
+                    },
+                    'trajet_precedent': {
+                        'trajet_id': trajet_actif.path.id if trajet_actif else None,
+                        'nom_trajet': trajet_actif.path.nom if trajet_actif else None,
+                        'etat_final': etat_actuel,
+                        'lieu_final': trajet_actif.lieu if trajet_actif else None,
+                        'date_fin': trajet_actif.date_prevu.isoformat() if trajet_actif and trajet_actif.date_prevu else None,
+                        'heure_fin': trajet_actif.heure.strftime('%H:%M:%S') if trajet_actif and trajet_actif.heure else None
+                    } if trajet_actif else None,
+                    'statistiques': {
+                        'nouveau_trajet_source': result['path_template'].source,
+                        'nouveau_trajet_destination': result['path_template'].destination,
+                        'transition': f'{etat_actuel} → stocke',
+                        'planification_directe': True
+                    }
+                }
+                
+                return Response(response_data, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
+                return Response({
+                    'error': f'Erreur lors de la vérification de l\'objet: {str(e)}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+class PathTemplateListView(generics.ListAPIView):
+    """
+    API pour lister tous les templates de chemin
+    """
+    serializer_class = PathTemplateSerializer
+    
+    def get_queryset(self):
+        return PathTemplate.objects.all()
+
+
+class TrajetListView(generics.ListAPIView):
+    """
+    API pour lister tous les trajets avec données temps réel simulées
+    GET /api/captures/liste-trajets/
+    """
+    serializer_class = TrajetListSerializer
+    
+    def get_queryset(self):
+        # Vérifier les objets perdus avant de retourner la liste
+        self.check_lost_objects()
+        return PathTemplate.objects.select_related().all()
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def check_lost_objects(self):
+        """
+        Vérifier et marquer les objets comme perdus si pas de signal depuis longtemps
+        """
+       
+        
+        # Objets sans signal depuis plus de 2 heures
+        cutoff_time = datetime.now() - timedelta(hours=2)
+        
+        lost_messeurs = MesseurTracking.objects.filter(
+            date_prevu__lt=cutoff_time.date()
+        ).exclude(object_tracking__etat='perdu')
+        
+        for messeur in lost_messeurs:
+            last_update = datetime.combine(messeur.date_prevu, messeur.heure)
+            if last_update < cutoff_time:
+                messeur.object_tracking.etat = 'perdu'
+                messeur.object_tracking.save()
+
+
+
+class UpdatePositionRealTimeView(APIView):
+    """
+    API pour recevoir les mises à jour de position temps réel des tags RFID
+    POST /api/captures/update-position-realtime/
+    
+    Cette API sera appelée par les dispositifs IoT pour envoyer les données de position
+    """
+    
+    def post(self, request):
+       
+        
+        tag_num_serie = request.data.get('tag_rfid_num_serie')
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        timestamp = request.data.get('timestamp')
+        
+        # Géolocalisation inverse automatique pour déterminer le lieu
+        lieu = self.get_location_from_coordinates(latitude, longitude)
+        
+        if not all([tag_num_serie, latitude, longitude]):
+            return Response({
+                'error': 'tag_rfid_num_serie, latitude et longitude sont requis'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Trouver le tag RFID
+            tag_rfid = TagRfid.objects.get(num_serie=tag_num_serie)
+            
+            # Trouver le MesseurTracking actif
+            messeur = MesseurTracking.objects.filter(
+                capture_rfid=tag_rfid
+            ).order_by('-date_debut').first()
+            
+            if not messeur:
+                return Response({
+                    'error': f'Aucun trajet actif pour le tag {tag_num_serie}'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Sauvegarder l'ancienne position actuelle AVANT de la modifier
+            previous_lieu = messeur.lieu
+            previous_latitude, previous_longitude = self.get_current_coordinates(messeur)
+            
+            # Traiter le timestamp
+            if timestamp:
+                try:
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    new_date = dt.date()
+                    new_heure = dt.time()
+                    new_datetime = timezone.make_aware(dt.replace(tzinfo=None)) if dt.tzinfo is None else dt
+                except:
+                    now = timezone.now()
+                    new_date = now.date()
+                    new_heure = now.time()
+                    new_datetime = now
+            else:
+                now = timezone.now()
+                new_date = now.date()
+                new_heure = now.time()
+                new_datetime = now
+            
+            # ÉTAPE 1: SAUVEGARDER L'ANCIENNE POSITION DANS L'HISTORIQUE
+            # Sauvegarder l'état actuel de MesseurTracking dans PositionHistorique AVANT modification
+            if messeur.lieu and messeur.date_prevu and messeur.heure:
+                # Créer un datetime à partir de l'ancienne position
+                try:
+                    ancienne_datetime = datetime.combine(messeur.date_prevu, messeur.heure)
+                    ancienne_datetime = timezone.make_aware(ancienne_datetime) if timezone.is_naive(ancienne_datetime) else ancienne_datetime
+                except:
+                    ancienne_datetime = new_datetime  # Fallback au nouveau timestamp
+                
+                # Sauvegarder l'ancienne position dans l'historique
+                ancienne_position = PositionHistorique.objects.create(
+                    messeur_tracking=messeur,
+                    lieu=messeur.lieu,
+                    latitude=previous_latitude if previous_latitude else 0.0,
+                    longitude=previous_longitude if previous_longitude else 0.0,
+                    timestamp=ancienne_datetime,
+                    date_sortie=new_datetime  # La sortie de l'ancien lieu = l'arrivée au nouveau lieu
+                )
+                
+                # Si l'objet change de lieu, calculer la durée passée dans l'ancien lieu
+                if previous_lieu != lieu:
+                    # Trouver la première entrée dans l'ancien lieu pour calculer la durée totale
+                    premiere_entree_ancien_lieu = PositionHistorique.objects.filter(
+                        messeur_tracking=messeur,
+                        lieu=previous_lieu,
+                        date_entree__isnull=False
+                    ).order_by('timestamp').first()
+                    
+                    if premiere_entree_ancien_lieu and premiere_entree_ancien_lieu.date_entree:
+                        duree_dans_ancien_lieu = new_datetime - premiere_entree_ancien_lieu.date_entree
+                        ancienne_position.duree_dans_lieu = duree_dans_ancien_lieu
+                        ancienne_position.date_entree = premiere_entree_ancien_lieu.date_entree
+                        ancienne_position.save()
+            
+            # ÉTAPE 2: CRÉER L'ENTRÉE POUR LA NOUVELLE POSITION
+            nouvelle_position = PositionHistorique.objects.create(
+                messeur_tracking=messeur,
+                lieu=lieu,
+                latitude=float(latitude),
+                longitude=float(longitude),
+                timestamp=new_datetime,
+                date_entree=new_datetime  # Entrée dans le nouveau lieu
+            )
+            
+            # ÉTAPE 3: CALCULER LA DURÉE DE PASSAGE DANS LE NOUVEAU LIEU
+            # 2. Calculer la durée de passage dans le lieu actuel
+            if previous_lieu == lieu:
+                # L'objet est toujours dans le même lieu
+                # Trouver la première entrée dans ce lieu
+                premiere_entree = PositionHistorique.objects.filter(
+                    messeur_tracking=messeur,
+                    lieu=lieu,
+                    date_entree__isnull=False
+                ).order_by('timestamp').first()
+                
+                if premiere_entree and premiere_entree.date_entree:
+                    duree_dans_lieu = new_datetime - premiere_entree.date_entree
+                    heures = int(duree_dans_lieu.total_seconds() // 3600)
+                    minutes = int((duree_dans_lieu.total_seconds() % 3600) // 60)
+                    secondes = int(duree_dans_lieu.total_seconds() % 60)
+                    messeur.duree_passage = f"{heures:02d}:{minutes:02d}:{secondes:02d}"
+                else:
+                    messeur.duree_passage = "00:00:00"
+            else:
+                # L'objet a changé de lieu - commencer un nouveau compteur
+                messeur.duree_passage = "00:00:00"
+            
+            # ÉTAPE 4: METTRE À JOUR MESSEURTRACKING AVEC LA NOUVELLE POSITION
+            messeur.lieu = lieu
+            messeur.date_prevu = new_date
+            messeur.heure = new_heure
+            # Ajouter les coordonnées GPS dans MesseurTracking si les champs existent
+            if hasattr(messeur, 'latitude'):
+                messeur.latitude = float(latitude)
+            if hasattr(messeur, 'longitude'):
+                messeur.longitude = float(longitude)
+            
+            # LOGIQUE INTELLIGENTE POUR L'ÉTAT DE L'OBJET
+            objet = messeur.object_tracking
+            path = messeur.path
+            
+            # Fonction pour calculer la distance entre deux points GPS
+            def calculate_distance(lat1, lon1, lat2, lon2):
+                R = 6371  # Rayon de la Terre en km
+                dlat = math.radians(lat2 - lat1)
+                dlon = math.radians(lon2 - lon1)
+                a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                return R * c * 1000  # Distance en mètres
+            
+            # Distance par rapport à la source
+            distance_source = calculate_distance(
+                float(latitude), float(longitude),
+                path.latitude_src, path.longitude_src
+            )
+            
+            # Distance par rapport à la destination
+            distance_destination = calculate_distance(
+                float(latitude), float(longitude),
+                path.latitude_dest, path.longitude_dest
+            )
+            
+            # Logique de détermination de l'état
+            if distance_source <= 100:  # Dans un rayon de 100m de la source
+                if objet.etat != 'stocke':
+                    objet.etat = 'stocke'
+                    objet.save()
+                    
+            elif distance_destination <= 100:  # Dans un rayon de 100m de la destination
+                if objet.etat != 'reçu':
+                    objet.etat = 'reçu'
+                    objet.save()
+                    
+            else:  # Entre source et destination - FORCE l'état en_transit car on reçoit un signal
+                if objet.etat != 'en_transit':
+                    objet.etat = 'en_transit'
+                    objet.save()
+            
+            messeur.save()
+            
+            # Note: L'objet n'est marqué comme "perdu" que si aucun signal n'est reçu pendant longtemps
+            # Ici, nous venons de recevoir un signal, donc l'objet ne peut pas être perdu
+            
+            # ENVOYER MISE À JOUR SSE À TOUS LES CLIENTS CONNECTÉS
+            update_data = {
+                'type': 'position_update',
+                'trajet_id': messeur.path.id,
+                'tag_rfid': tag_num_serie,
+                'objet_nom': f"{messeur.object_tracking.categorie}_{tag_num_serie}",
+                'etat_objet': objet.etat,
+                'etat_change': previous_lieu != lieu,  # Si l'objet a bougé
+                'distances': {
+                    'source': round(distance_source, 2),
+                    'destination': round(distance_destination, 2)
+                },
+                'nouvelle_position': {
+                    'lieu': lieu,
+                    'latitude': latitude,
+                    'longitude': longitude,
+                    'timestamp': messeur.date_prevu.isoformat(),
+                    'heure': messeur.heure.strftime('%H:%M:%S'),
+                    'duree_passage': str(messeur.duree_passage)
+                }
+            }
+            
+            # Broadcast à tous les clients SSE connectés
+            self.broadcast_sse_update(update_data)
+            
+            return Response({
+                'success': True,
+                'message': f'Position mise à jour pour {tag_num_serie}',
+                'trajet_id': messeur.path.id,
+                'etat_objet': objet.etat,
+                'duree_passage': str(messeur.duree_passage),
+                'distances': update_data['distances'],
+                'nouvelle_position': update_data['nouvelle_position']
+            })
+            
+        except TagRfid.DoesNotExist:
+            return Response({
+                'error': f'Tag RFID {tag_num_serie} non trouvé'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': f'Erreur: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def get_current_coordinates(self, messeur):
+        """
+        Obtenir les coordonnées GPS actuelles du MesseurTracking
+        """
+        # Essayer d'obtenir les coordonnées depuis les champs directs
+        if hasattr(messeur, 'latitude') and hasattr(messeur, 'longitude'):
+            if messeur.latitude and messeur.longitude:
+                return float(messeur.latitude), float(messeur.longitude)
+        
+        # Sinon, essayer d'obtenir depuis la dernière position dans l'historique
+        from .models import PositionHistorique
+        derniere_position = PositionHistorique.objects.filter(
+            messeur_tracking=messeur
+        ).order_by('-timestamp').first()
+        
+        if derniere_position and derniere_position.latitude and derniere_position.longitude:
+            return float(derniere_position.latitude), float(derniere_position.longitude)
+        
+        # Par défaut, retourner None si pas de coordonnées
+        return None, None
+    
+    def get_location_from_coordinates(self, latitude, longitude):
+        """
+        Obtenir le nom du lieu à partir des coordonnées GPS en utilisant la géolocalisation inverse
+        """
+        if not latitude or not longitude:
+            return 'Position GPS inconnue'
+        
+        try:
+           
+            
+            geolocation_service = GeolocationService()
+            result = geolocation_service.geocoder.reverse_geocode(
+                float(latitude), float(longitude)
+            )
+            
+            # Extraire le nom du lieu principal à partir des composants d'adresse
+            if result and 'address_components' in result:
+                address = result['address_components']
+                
+                # Prioriser ville > commune > village > quartier
+                lieu_parts = []
+                
+                if 'city' in address:
+                    lieu_parts.append(address['city'])
+                elif 'town' in address:
+                    lieu_parts.append(address['town'])
+                elif 'village' in address:
+                    lieu_parts.append(address['village'])
+                elif 'suburb' in address:
+                    lieu_parts.append(address['suburb'])
+                elif 'municipality' in address:
+                    lieu_parts.append(address['municipality'])
+                
+                if 'state' in address and len(lieu_parts) > 0:
+                    lieu_parts.append(address['state'])
+                
+                if lieu_parts:
+                    lieu = ', '.join(lieu_parts)
+                else:
+                    # Utiliser le nom formaté et prendre les premiers éléments
+                    formatted_address = result.get('formatted_address', '')
+                    address_parts = formatted_address.split(',')
+                    if len(address_parts) >= 2:
+                        lieu = f"{address_parts[0].strip()}, {address_parts[1].strip()}"
+                    else:
+                        lieu = address_parts[0].strip() if address_parts else f"GPS({latitude}, {longitude})"
+                        
+                return lieu if lieu else f"GPS({latitude}, {longitude})"
+            else:
+                return f"GPS({latitude}, {longitude})"
+                
+        except Exception as e:
+            # En cas d'erreur, utiliser les coordonnées
+            print(f"Erreur géolocalisation: {str(e)}")  # Pour débugger
+            return f"GPS({latitude}, {longitude})"
+    
+    def broadcast_sse_update(self, data):
+        """
+        Fonction pour broadcaster les mises à jour SSE
+        """
+    
+        # Stocker la mise à jour dans le cache pour les clients SSE
+        cache_key = f"sse_update_{data['trajet_id']}"
+        cache.set(cache_key, json.dumps(data), 300)  # 5 minutes
+        
+        # Stocker aussi pour tous les trajets
+        cache.set("sse_update_all", json.dumps(data), 300)
+
+'''
+
+class TrajetHistoriqueView(APIView):
+    """
+    API pour récupérer l'historique détaillé d'un trajet spécifique
+    GET /api/captures/trajet-historique/{id}/
+    
+    Affiche le trajet complet avec tous les points, position actuelle et statuts
+    """
+    
+    def get(self, request, trajet_id):
+        try:
+            # Récupérer le PathTemplate
+            path_template = PathTemplate.objects.get(id=trajet_id)
+            
+            # Récupérer le MesseurTracking associé
+            messeur = MesseurTracking.objects.select_related(
+                'object_tracking', 'capture_rfid'
+            ).filter(path=path_template).first()
+            
+            if not messeur:
+                return Response({
+                    'error': 'Aucun trajet trouvé avec cet ID'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Informations générales du trajet
+            nom_objet = f"{messeur.object_tracking.categorie}_{messeur.capture_rfid.num_serie}"
+            
+            # Position actuelle depuis MesseurTracking
+            position_actuelle = {
+                'lieu': messeur.lieu,
+                'date_derniere_maj': messeur.date_prevu.isoformat() if messeur.date_prevu else None,
+                'heure_derniere_maj': messeur.heure.strftime('%H:%M:%S') if messeur.heure else None
+            }
+            
+            # Obtenir les coordonnées actuelles depuis PositionHistorique
+            derniere_position = PositionHistorique.objects.filter(
+                messeur_tracking=messeur
+            ).order_by('-timestamp').first()
+            
+            if derniere_position:
+                position_actuelle.update({
+                    'latitude': derniere_position.latitude,
+                    'longitude': derniere_position.longitude,
+                    'timestamp_position': derniere_position.timestamp.isoformat()
+                })
+            
+            # Récupérer tous les points du PathTemplate dans l'ordre
+            path_points = PathTemplatePoint.objects.filter(
+                template=path_template
+            ).select_related('point').order_by('ordre')
+            
+            # Construire la liste des points avec leurs statuts
+            points_trajet = []
+            
+            # 1. Point de départ
+            date_entree_depart = self._obtenir_date_entree(messeur, path_template.source)
+            point_depart = {
+                'id': f'source_{path_template.id}',
+                'type': 'source',
+                'nom_lieu': path_template.source,
+                'latitude': path_template.latitude_src,
+                'longitude': path_template.longitude_src,
+                'ordre': 0,
+                'date_prevu': messeur.date_debut.isoformat(),
+                'date_entree': date_entree_depart.date().isoformat() if date_entree_depart else None,
+                'heure_entree': date_entree_depart.strftime('%H:%M:%S') if date_entree_depart else None,
+                'statut': self._determiner_statut_point(
+                    messeur, path_template.source, messeur.date_debut, is_source=True
+                ),
+                'est_position_actuelle': messeur.lieu == path_template.source
+            }
+            points_trajet.append(point_depart)
+            
+            # 2. Points intermédiaires du PathTemplate
+            for path_point in path_points:
+                date_entree_point = self._obtenir_date_entree(messeur, path_point.point.nom_lieu)
+                point_data = {
+                    'id': f'point_{path_point.id}',
+                    'type': 'intermediate',
+                    'nom_lieu': path_point.point.nom_lieu,
+                    'latitude': path_point.point.latitude,
+                    'longitude': path_point.point.longitude,
+                    'ordre': path_point.ordre,
+                    'date_prevu': path_point.date_prevu.isoformat() if path_point.date_prevu else None,
+                    'date_entree': date_entree_point.date().isoformat() if date_entree_point else None,
+                    'heure_entree': date_entree_point.strftime('%H:%M:%S') if date_entree_point else None,
+                    'statut': self._determiner_statut_point(
+                        messeur, path_point.point.nom_lieu, path_point.date_prevu, is_source=False
+                    ),
+                    'est_position_actuelle': messeur.lieu == path_point.point.nom_lieu
+                }
+                points_trajet.append(point_data)
+            
+            # 3. Point de destination
+            date_entree_destination = self._obtenir_date_entree(messeur, path_template.destination)
+            point_destination = {
+                'id': f'destination_{path_template.id}',
+                'type': 'destination',
+                'nom_lieu': path_template.destination,
+                'latitude': path_template.latitude_dest,
+                'longitude': path_template.longitude_dest,
+                'ordre': len(path_points) + 1,
+                'date_prevu': messeur.date_fin.isoformat(),
+                'date_entree': date_entree_destination.date().isoformat() if date_entree_destination else None,
+                'heure_entree': date_entree_destination.strftime('%H:%M:%S') if date_entree_destination else None,
+                'statut': self._determiner_statut_point(
+                    messeur, path_template.destination, messeur.date_fin, is_source=False
+                ),
+                'est_position_actuelle': messeur.lieu == path_template.destination
+            }
+            points_trajet.append(point_destination)
+            
+            # 4. Si la position actuelle n'est dans aucun point défini, l'ajouter
+            position_actuelle_dans_liste = any(
+                point['est_position_actuelle'] for point in points_trajet
+            )
+            
+            if not position_actuelle_dans_liste and messeur.lieu:
+                # Trouver l'ordre approprié pour la position actuelle
+                ordre_actuel = self._determiner_ordre_position_actuelle(
+                    messeur, points_trajet
+                )
+                
+                # Date d'entrée pour la position actuelle
+                date_entree_actuelle = self._obtenir_date_entree(messeur, messeur.lieu)
+                
+                point_actuel = {
+                    'id': f'current_{messeur.id}',
+                    'type': 'current_position',
+                    'nom_lieu': messeur.lieu,
+                    'latitude': derniere_position.latitude if derniere_position else None,
+                    'longitude': derniere_position.longitude if derniere_position else None,
+                    'ordre': ordre_actuel,
+                    'date_prevu': None,
+                    'date_entree': date_entree_actuelle.date().isoformat() if date_entree_actuelle else None,
+                    'heure_entree': date_entree_actuelle.strftime('%H:%M:%S') if date_entree_actuelle else None,
+                    'statut': 'position_actuelle',
+                    'est_position_actuelle': True,
+                    'date_arrivee': messeur.date_prevu.isoformat() if messeur.date_prevu else None,
+                    'heure_arrivee': messeur.heure.strftime('%H:%M:%S') if messeur.heure else None
+                }
+                
+                # Insérer à la bonne position dans la liste
+                points_trajet.append(point_actuel)
+                points_trajet.sort(key=lambda x: x['ordre'])
+            
+            # Déterminer l'état dynamique de l'objet
+            etat_dynamique = self._determiner_etat_objet(messeur, path_template, points_trajet)
+            
+            # Statistiques du trajet
+            points_arrives = len([p for p in points_trajet if p['statut'] == 'arrive'])
+            points_en_retard = len([p for p in points_trajet if p['statut'] == 'arrive_en_retard'])
+            points_en_attente = len([p for p in points_trajet if p['statut'] == 'en_attente'])
+            
+            # Réponse complète
+            response_data = {
+                'trajet_id': trajet_id,
+                'nom_trajet': path_template.nom,
+                'objet': {
+                    'nom_objet': nom_objet,
+                   
+                    'etat_actuel': etat_dynamique  # Utiliser l'état dynamique
+                },
+                'trajet_info': {
+                    'lieu_depart': path_template.source,
+                    'lieu_destination': path_template.destination,
+                    'date_debut': messeur.date_debut.isoformat(),
+                    'date_fin_prevue': messeur.date_fin.isoformat(),
+                    'coordonnees_depart': {
+                        'latitude': path_template.latitude_src,
+                        'longitude': path_template.longitude_src
+                    },
+                    'coordonnees_destination': {
+                        'latitude': path_template.latitude_dest,
+                        'longitude': path_template.longitude_dest
+                    }
+                },
+                'position_actuelle': position_actuelle,
+                'points_trajet': points_trajet,
+                
+               
+            }
+            
+            return Response(response_data)
+            
+        except PathTemplate.DoesNotExist:
+            return Response({
+                'error': 'Trajet non trouvé'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': f'Erreur lors de la récupération de l\'historique: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _obtenir_date_entree(self, messeur, nom_lieu):
+        """
+        Récupère la date d'entrée d'un lieu depuis PositionHistorique
+        
+        Args:
+            messeur: Instance MesseurTracking
+            nom_lieu: Nom du lieu à rechercher
+            
+        Returns:
+            datetime: Date d'entrée ou None si pas trouvé
+        """
+        # Rechercher la date d'entrée dans PositionHistorique
+        position_historique = PositionHistorique.objects.filter(
+            messeur_tracking=messeur,
+            date_entree__isnull=False
+        ).filter(
+            models.Q(lieu__icontains=nom_lieu) | 
+            models.Q(lieu__icontains=nom_lieu.split(',')[0] if ',' in nom_lieu else nom_lieu.split()[0])
+        ).order_by('date_entree').first()
+        
+        if position_historique:
+            return position_historique.date_entree
+        
+        # Si pas trouvé avec correspondance partielle, essayer correspondance inverse
+        if messeur.lieu:
+            lieu_mots = nom_lieu.lower().split()
+            messeur_lieu_lower = messeur.lieu.lower()
+            
+            # Si l'un des mots du nom du lieu est dans la position actuelle
+            for mot in lieu_mots:
+                if mot in messeur_lieu_lower:
+                    # Chercher la date d'entrée pour la position actuelle
+                    position_actuelle_historique = PositionHistorique.objects.filter(
+                        messeur_tracking=messeur,
+                        lieu=messeur.lieu,
+                        date_entree__isnull=False
+                    ).order_by('date_entree').first()
+                    
+                    if position_actuelle_historique:
+                        return position_actuelle_historique.date_entree
+                    break
+        
+        return None
+    
+    def _determiner_etat_objet(self, messeur, path_template, points_trajet):
+        """
+        Détermine l'état dynamique de l'objet selon sa position dans le trajet
+        
+        Logique:
+        - "recu" : Si l'objet est à la destination finale
+        - "en_transit" : Si l'objet est entre le départ et la destination
+        - "stocke" : Si l'objet est dans un point intermédiaire et y reste
+        """
+        
+        # Si l'objet est à la destination finale
+        if messeur.lieu == path_template.destination:
+            return "reçu"
+        
+        # Si l'objet est au point de départ et n'a pas encore commencé
+        if messeur.lieu == path_template.source:
+            # Vérifier s'il y a des positions dans l'historique après le départ
+            positions_apres_depart = PositionHistorique.objects.filter(
+                messeur_tracking=messeur
+            ).exclude(lieu=path_template.source).exists()
+            
+            if positions_apres_depart:
+                return "en_transit"  # Il a bougé puis est revenu
+            else:
+                return "stocke"  # Il n'a pas encore commencé
+        
+        # Si l'objet est dans un point intermédiaire
+        for point in points_trajet:
+            if point['nom_lieu'] in messeur.lieu or messeur.lieu in point['nom_lieu']:
+                # Vérifier depuis combien de temps il est dans ce lieu
+                derniere_position = PositionHistorique.objects.filter(
+                    messeur_tracking=messeur,
+                    lieu=messeur.lieu
+                ).order_by('-timestamp').first()
+                
+                if derniere_position and derniere_position.date_entree:
+                    # Si il est dans ce lieu depuis plus d'une journée, considérer comme stocké
+                   
+                    temps_dans_lieu = datetime.now() - derniere_position.date_entree.replace(tzinfo=None)
+                    
+                    if temps_dans_lieu > timedelta(hours=24):
+                        return "stocke"
+                    else:
+                        return "en_transit"
+                
+                return "en_transit"
+        
+        # Par défaut, si l'objet est quelque part entre les points
+        return "en_transit"
+    
+
+    
+    def _determiner_statut_point(self, messeur, nom_lieu, date_prevu, is_source=False):
+        """
+        Détermine le statut d'un point basé sur PositionHistorique
+        
+        Logique corrigée avec meilleure détection de correspondance
+        """
+        
+        # Le point de départ est toujours arrivé
+        if is_source:
+            return 'arrive'
+        
+        if not date_prevu:
+            return 'en_attente'
+        
+        # Chercher dans PositionHistorique si l'objet est passé par ce lieu
+        # Utiliser une recherche plus flexible pour les correspondances
+        position_historique = PositionHistorique.objects.filter(
+            messeur_tracking=messeur,
+            date_entree__isnull=False
+        ).filter(
+            models.Q(lieu__icontains=nom_lieu) | 
+            models.Q(lieu__icontains=nom_lieu.split(',')[0] if ',' in nom_lieu else nom_lieu.split()[0])
+        ).order_by('date_entree').first()
+        
+        # Vérifier aussi si la position actuelle correspond à cette région
+        position_actuelle_correspond = False
+        if messeur.lieu:
+            # Correspondance plus flexible
+            lieu_mots = nom_lieu.lower().split()
+            messeur_lieu_lower = messeur.lieu.lower()
+            
+            # Si l'un des mots du nom du lieu est dans la position actuelle
+            for mot in lieu_mots:
+                if mot in messeur_lieu_lower:
+                    position_actuelle_correspond = True
+                    break
+        
+        # Si on trouve une correspondance dans l'historique OU si la position actuelle correspond
+        if position_historique or position_actuelle_correspond:
+            # Si on a un historique précis, utiliser sa date
+            if position_historique and position_historique.date_entree:
+                date_entree = position_historique.date_entree.date()
+                
+                if isinstance(date_prevu, str):
+                    from datetime import datetime
+                    date_prevu = datetime.fromisoformat(date_prevu).date()
+                
+                if date_entree <= date_prevu:
+                    return 'arrive'
+                else:
+                    return 'arrive_en_retard'
+            
+            # Si pas d'historique mais position actuelle correspond, considérer comme arrivé
+            elif position_actuelle_correspond:
+                # Utiliser la date actuelle pour la comparaison
+            
+                date_actuelle = date.today()
+                
+                if isinstance(date_prevu, str):
+                    from datetime import datetime
+                    date_prevu = datetime.fromisoformat(date_prevu).date()
+                
+                if date_actuelle <= date_prevu:
+                    return 'arrive'
+                else:
+                    return 'arrive_en_retard'
+        
+        # Le point n'existe pas encore dans l'historique et position actuelle ne correspond pas
+        return 'en_attente'
+    
+    def _determiner_ordre_position_actuelle(self, messeur, points_trajet):
+        """
+        Détermine l'ordre approprié pour insérer la position actuelle
+        basé sur l'historique chronologique des positions
+        """
+        # Si la position actuelle correspond exactement à un point existant, utiliser son ordre
+        for point in points_trajet:
+            if point['nom_lieu'] == messeur.lieu:
+                return point['ordre']
+        
+        # Obtenir tous les lieux visités dans l'ordre chronologique depuis PositionHistorique
+        positions_visitees = PositionHistorique.objects.filter(
+            messeur_tracking=messeur,
+            date_entree__isnull=False
+        ).order_by('date_entree').values_list('lieu', flat=True)
+        
+        if not positions_visitees:
+            # Si pas d'historique, placer au début
+            return 0.5
+        
+        # Trouver le dernier point du trajet que l'objet a visité
+        dernier_point_visite_ordre = -1
+        
+        for position_visitee in positions_visitees:
+            for point in points_trajet:
+                # Vérifier si la position visitée correspond à un point du trajet
+                if (point['nom_lieu'].lower() in position_visitee.lower() or 
+                    position_visitee.lower() in point['nom_lieu'].lower()):
+                    # Mettre à jour le dernier point visité si c'est plus récent
+                    if point['ordre'] > dernier_point_visite_ordre:
+                        dernier_point_visite_ordre = point['ordre']
+        
+        # Si on a trouvé un point visité, placer la position actuelle juste après
+        if dernier_point_visite_ordre >= 0:
+            return dernier_point_visite_ordre + 0.1
+        
+        # Sinon, essayer de déterminer la position logique
+        # Basé sur la distance géographique ou l'ordre des points
+        if points_trajet:
+            # Trouver le point le plus proche géographiquement de la position actuelle
+            derniere_position = PositionHistorique.objects.filter(
+                messeur_tracking=messeur
+            ).order_by('-timestamp').first()
+            
+            if derniere_position:
+                position_actuelle_lat = derniere_position.latitude
+                position_actuelle_lon = derniere_position.longitude
+                
+                distances = []
+                for point in points_trajet:
+                    if point['latitude'] and point['longitude']:
+                        # Calcul simple de distance (approximatif)
+                        distance = ((point['latitude'] - position_actuelle_lat) ** 2 + 
+                                  (point['longitude'] - position_actuelle_lon) ** 2) ** 0.5
+                        distances.append((distance, point['ordre']))
+                
+                if distances:
+                    # Trier par distance et prendre le point le plus proche
+                    distances.sort()
+                    point_proche_ordre = distances[0][1]
+                    return point_proche_ordre + 0.1
+        
+        # Par défaut, placer au milieu
+        return len(points_trajet) / 2
+'''
+
+class TrajetHistoriqueView(APIView):
+    """
+    API pour récupérer l'historique détaillé d'un trajet spécifique
+    GET /api/captures/trajet-historique/{id}/
+    
+    Affiche le trajet complet avec tous les points, position actuelle et statuts
+    """
+    
+    def get(self, request, trajet_id):
+        try:
+            # Récupérer le PathTemplate
+            path_template = PathTemplate.objects.get(id=trajet_id)
+            
+            # Récupérer le MesseurTracking associé
+            messeur = MesseurTracking.objects.select_related(
+                'object_tracking', 'capture_rfid'
+            ).filter(path=path_template).first()
+            
+            if not messeur:
+                return Response({
+                    'error': 'Aucun trajet trouvé avec cet ID'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Informations générales du trajet
+            nom_objet = f"{messeur.object_tracking.categorie}_{messeur.capture_rfid.num_serie}"
+            
+            # Position actuelle depuis MesseurTracking
+            position_actuelle = {
+                'lieu': messeur.lieu,
+                'date_derniere_maj': messeur.date_prevu.isoformat() if messeur.date_prevu else None,
+                'heure_derniere_maj': messeur.heure.strftime('%H:%M:%S') if messeur.heure else None
+            }
+            
+            # Obtenir les coordonnées actuelles depuis PositionHistorique
+            derniere_position = PositionHistorique.objects.filter(
+                messeur_tracking=messeur
+            ).order_by('-timestamp').first()
+            
+            if derniere_position:
+                position_actuelle.update({
+                    'latitude': derniere_position.latitude,
+                    'longitude': derniere_position.longitude,
+                    'timestamp_position': derniere_position.timestamp.isoformat()
+                })
+            
+            # Récupérer tous les points du PathTemplate dans l'ordre
+            path_points = PathTemplatePoint.objects.filter(
+                template=path_template
+            ).select_related('point').order_by('ordre')
+            
+            # Construire la liste des points avec leurs statuts
+            points_trajet = []
+            
+            # 1. Point de départ
+            date_entree_depart = self._obtenir_date_entree(messeur, path_template.source)
+            point_depart = {
+                'id': f'source_{path_template.id}',
+                'type': 'source',
+                'nom_lieu': path_template.source,
+                'latitude': path_template.latitude_src,
+                'longitude': path_template.longitude_src,
+                'ordre': 0,
+                'date_prevu': messeur.date_debut.isoformat(),
+                'date_entree': date_entree_depart.date().isoformat() if date_entree_depart else None,
+                'heure_entree': date_entree_depart.strftime('%H:%M:%S') if date_entree_depart else None,
+                'statut': self._determiner_statut_point(
+                    messeur, path_template.source, messeur.date_debut, is_source=True
+                ),
+                'est_position_actuelle': messeur.lieu == path_template.source
+            }
+            points_trajet.append(point_depart)
+            
+            # 2. Points intermédiaires du PathTemplate
+            for path_point in path_points:
+                date_entree_point = self._obtenir_date_entree(messeur, path_point.point.nom_lieu)
+                point_data = {
+                    'id': f'point_{path_point.id}',
+                    'type': 'intermediate',
+                    'nom_lieu': path_point.point.nom_lieu,
+                    'latitude': path_point.point.latitude,
+                    'longitude': path_point.point.longitude,
+                    'ordre': path_point.ordre,
+                    'date_prevu': path_point.date_prevu.isoformat() if path_point.date_prevu else None,
+                    'date_entree': date_entree_point.date().isoformat() if date_entree_point else None,
+                    'heure_entree': date_entree_point.strftime('%H:%M:%S') if date_entree_point else None,
+                    'statut': self._determiner_statut_point(
+                        messeur, path_point.point.nom_lieu, path_point.date_prevu, is_source=False
+                    ),
+                    'est_position_actuelle': messeur.lieu == path_point.point.nom_lieu
+                }
+                points_trajet.append(point_data)
+            
+            # 3. Point de destination
+            date_entree_destination = self._obtenir_date_entree(messeur, path_template.destination)
+            point_destination = {
+                'id': f'destination_{path_template.id}',
+                'type': 'destination',
+                'nom_lieu': path_template.destination,
+                'latitude': path_template.latitude_dest,
+                'longitude': path_template.longitude_dest,
+                'ordre': len(path_points) + 1,
+                'date_prevu': messeur.date_fin.isoformat(),
+                'date_entree': date_entree_destination.date().isoformat() if date_entree_destination else None,
+                'heure_entree': date_entree_destination.strftime('%H:%M:%S') if date_entree_destination else None,
+                'statut': self._determiner_statut_point(
+                    messeur, path_template.destination, messeur.date_fin, is_source=False
+                ),
+                'est_position_actuelle': messeur.lieu == path_template.destination
+            }
+            points_trajet.append(point_destination)
+            
+            # 4. Si la position actuelle n'est dans aucun point défini, l'ajouter
+            position_actuelle_dans_liste = any(
+                point['est_position_actuelle'] for point in points_trajet
+            )
+            
+            if not position_actuelle_dans_liste and messeur.lieu:
+                # Trouver l'ordre approprié pour la position actuelle
+                ordre_actuel = self._determiner_ordre_position_actuelle(
+                    messeur, points_trajet
+                )
+                
+                # Date d'entrée pour la position actuelle
+                date_entree_actuelle = self._obtenir_date_entree(messeur, messeur.lieu)
+                
+                point_actuel = {
+                    'id': f'current_{messeur.id}',
+                    'type': 'current_position',
+                    'nom_lieu': messeur.lieu,
+                    'latitude': derniere_position.latitude if derniere_position else None,
+                    'longitude': derniere_position.longitude if derniere_position else None,
+                    'ordre': ordre_actuel,
+                    'date_prevu': None,
+                    'date_entree': date_entree_actuelle.date().isoformat() if date_entree_actuelle else None,
+                    'heure_entree': date_entree_actuelle.strftime('%H:%M:%S') if date_entree_actuelle else None,
+                    'statut': 'position_actuelle',
+                    'est_position_actuelle': True,
+                    'date_arrivee': messeur.date_prevu.isoformat() if messeur.date_prevu else None,
+                    'heure_arrivee': messeur.heure.strftime('%H:%M:%S') if messeur.heure else None
+                }
+                
+                # Insérer à la bonne position dans la liste
+                points_trajet.append(point_actuel)
+                points_trajet.sort(key=lambda x: x['ordre'])
+            
+            # Déterminer l'état dynamique de l'objet
+            etat_dynamique = self._determiner_etat_objet(messeur, path_template, points_trajet)
+            
+            # Statistiques du trajet
+            points_arrives = len([p for p in points_trajet if p['statut'] == 'arrive'])
+            points_en_retard = len([p for p in points_trajet if p['statut'] == 'arrive_en_retard'])
+            points_en_attente = len([p for p in points_trajet if p['statut'] == 'en_attente'])
+            
+            # Réponse complète
+            response_data = {
+                'trajet_id': trajet_id,
+                'nom_trajet': path_template.nom,
+                'objet': {
+                    'nom_objet': nom_objet,
+                    'etat_actuel': etat_dynamique  # Utiliser l'état dynamique
+                },
+                'trajet_info': {
+                    'lieu_depart': path_template.source,
+                    'lieu_destination': path_template.destination,
+                    'date_debut': messeur.date_debut.isoformat(),
+                    'date_fin_prevue': messeur.date_fin.isoformat(),
+                    'coordonnees_depart': {
+                        'latitude': path_template.latitude_src,
+                        'longitude': path_template.longitude_src
+                    },
+                    'coordonnees_destination': {
+                        'latitude': path_template.latitude_dest,
+                        'longitude': path_template.longitude_dest
+                    }
+                },
+                'position_actuelle': position_actuelle,
+                'points_trajet': points_trajet,
+            }
+            
+            return Response(response_data)
+            
+        except PathTemplate.DoesNotExist:
+            return Response({
+                'error': 'Trajet non trouvé'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': f'Erreur lors de la récupération de l\'historique: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _obtenir_date_entree(self, messeur, nom_lieu):
+        """
+        Récupère la date d'entrée d'un lieu depuis PositionHistorique
+        
+        Args:
+            messeur: Instance MesseurTracking
+            nom_lieu: Nom du lieu à rechercher
+            
+        Returns:
+            datetime: Date d'entrée ou None si pas trouvé
+        """
+        # Rechercher la date d'entrée dans PositionHistorique
+        position_historique = PositionHistorique.objects.filter(
+            messeur_tracking=messeur,
+            date_entree__isnull=False
+        ).filter(
+            models.Q(lieu__icontains=nom_lieu) | 
+            models.Q(lieu__icontains=nom_lieu.split(',')[0] if ',' in nom_lieu else nom_lieu.split()[0])
+        ).order_by('date_entree').first()
+        
+        if position_historique:
+            return position_historique.date_entree
+        
+        # Si pas trouvé avec correspondance partielle, essayer correspondance inverse
+        if messeur.lieu:
+            lieu_mots = nom_lieu.lower().split()
+            messeur_lieu_lower = messeur.lieu.lower()
+            
+            # Si l'un des mots du nom du lieu est dans la position actuelle
+            for mot in lieu_mots:
+                if mot in messeur_lieu_lower:
+                    # Chercher la date d'entrée pour la position actuelle
+                    position_actuelle_historique = PositionHistorique.objects.filter(
+                        messeur_tracking=messeur,
+                        lieu=messeur.lieu,
+                        date_entree__isnull=False
+                    ).order_by('date_entree').first()
+                    
+                    if position_actuelle_historique:
+                        return position_actuelle_historique.date_entree
+                    break
+        
+        return None
+    
+    def _determiner_etat_objet(self, messeur, path_template, points_trajet):
+        """
+        Détermine l'état dynamique de l'objet selon sa position dans le trajet
+        
+        Logique:
+        - "recu" : Si l'objet est à la destination finale (PRIORITÉ ABSOLUE)
+        - "en_transit" : Si l'objet est entre le départ et la destination
+        - "stocke" : Si l'objet est dans un point intermédiaire et y reste
+        """
+        
+        # ============================================================================
+        # PRIORITÉ 1: Si l'objet est à la destination finale -> TOUJOURS "recu"
+        # ============================================================================
+        if messeur.lieu == path_template.destination:
+            # Vérification supplémentaire avec correspondance partielle
+            lieu_destination = path_template.destination.lower()
+            lieu_actuel = messeur.lieu.lower()
+            
+            # Correspondance exacte
+            if lieu_destination == lieu_actuel:
+                return "recu"
+            
+            # Correspondance partielle (ex: "Béjaïa Port" dans "Béjaïa Port, Béjaïa")
+            destination_mots = lieu_destination.split()
+            for mot in destination_mots:
+                if len(mot) > 3 and mot in lieu_actuel:  # Mots significatifs seulement
+                    return "recu"
+            
+            # Correspondance inverse (ex: "Béjaïa" dans "Béjaïa Port")
+            actuel_mots = lieu_actuel.split()
+            for mot in actuel_mots:
+                if len(mot) > 3 and mot in lieu_destination:
+                    return "recu"
+        
+        # ============================================================================
+        # Vérifier aussi dans l'historique si l'objet est arrivé à destination
+        # ============================================================================
+        destination_atteinte = PositionHistorique.objects.filter(
+            messeur_tracking=messeur,
+            lieu__icontains=path_template.destination.split(',')[0] if ',' in path_template.destination else path_template.destination.split()[0]
+        ).exists()
+        
+        if destination_atteinte:
+            return "recu"
+        
+        # ============================================================================
+        # PRIORITÉ 2: Si l'objet est au point de départ
+        # ============================================================================
+        if messeur.lieu == path_template.source:
+            # Vérifier s'il y a des positions dans l'historique après le départ
+            positions_apres_depart = PositionHistorique.objects.filter(
+                messeur_tracking=messeur
+            ).exclude(lieu=path_template.source).exists()
+            
+            if positions_apres_depart:
+                return "en_transit"  # Il a bougé puis est revenu
+            else:
+                return "stocke"  # Il n'a pas encore commencé
+        
+        # ============================================================================
+        # PRIORITÉ 3: Si l'objet est dans un point intermédiaire
+        # ============================================================================
+        for point in points_trajet:
+            if point['nom_lieu'] in messeur.lieu or messeur.lieu in point['nom_lieu']:
+                # Vérifier depuis combien de temps il est dans ce lieu
+                derniere_position = PositionHistorique.objects.filter(
+                    messeur_tracking=messeur,
+                    lieu=messeur.lieu
+                ).order_by('-timestamp').first()
+                
+                if derniere_position and derniere_position.date_entree:
+                    # Si il est dans ce lieu depuis plus d'une journée, considérer comme stocké
+                    temps_dans_lieu = datetime.now() - derniere_position.date_entree.replace(tzinfo=None)
+                    
+                    if temps_dans_lieu > timedelta(hours=24):
+                        return "stocke"
+                    else:
+                        return "en_transit"
+                
+                return "en_transit"
+        
+        # ============================================================================
+        # Par défaut, si l'objet est quelque part entre les points
+        # ============================================================================
+        return "en_transit"
+    
+    def _determiner_statut_point(self, messeur, nom_lieu, date_prevu, is_source=False):
+        """
+        Détermine le statut d'un point basé sur PositionHistorique
+        
+        LOGIQUE MODIFIÉE: Si c'est la destination ET que l'objet y est -> TOUJOURS "arrive"
+        """
+        
+        # Le point de départ est toujours arrivé
+        if is_source:
+            return 'arrive'
+        
+        if not date_prevu:
+            return 'en_attente'
+        
+        # ============================================================================
+        # VÉRIFICATION SPÉCIALE POUR LA DESTINATION FINALE
+        # ============================================================================
+        # Si c'est le point de destination et que l'objet y est actuellement
+        if messeur.lieu and nom_lieu:
+            lieu_actuel_lower = messeur.lieu.lower()
+            nom_lieu_lower = nom_lieu.lower()
+            
+            # Correspondance pour la destination
+            destination_atteinte = False
+            
+            # Correspondance exacte
+            if lieu_actuel_lower == nom_lieu_lower:
+                destination_atteinte = True
+            
+            # Correspondance partielle
+            lieu_mots = nom_lieu_lower.split()
+            for mot in lieu_mots:
+                if len(mot) > 3 and mot in lieu_actuel_lower:
+                    destination_atteinte = True
+                    break
+            
+            # Si la destination est atteinte, retourner "arrive" même si en retard
+            if destination_atteinte:
+                return 'arrive'  # PAS "arrive_en_retard" pour la destination finale
+        
+        # ============================================================================
+        # LOGIQUE STANDARD POUR LES AUTRES POINTS
+        # ============================================================================
+        # Chercher dans PositionHistorique si l'objet est passé par ce lieu
+        position_historique = PositionHistorique.objects.filter(
+            messeur_tracking=messeur,
+            date_entree__isnull=False
+        ).filter(
+            models.Q(lieu__icontains=nom_lieu) | 
+            models.Q(lieu__icontains=nom_lieu.split(',')[0] if ',' in nom_lieu else nom_lieu.split()[0])
+        ).order_by('date_entree').first()
+        
+        # Vérifier aussi si la position actuelle correspond à cette région
+        position_actuelle_correspond = False
+        if messeur.lieu:
+            # Correspondance plus flexible
+            lieu_mots = nom_lieu.lower().split()
+            messeur_lieu_lower = messeur.lieu.lower()
+            
+            # Si l'un des mots du nom du lieu est dans la position actuelle
+            for mot in lieu_mots:
+                if mot in messeur_lieu_lower:
+                    position_actuelle_correspond = True
+                    break
+        
+        # Si on trouve une correspondance dans l'historique OU si la position actuelle correspond
+        if position_historique or position_actuelle_correspond:
+            # Si on a un historique précis, utiliser sa date
+            if position_historique and position_historique.date_entree:
+                date_entree = position_historique.date_entree.date()
+                
+                if isinstance(date_prevu, str):
+                    from datetime import datetime
+                    date_prevu = datetime.fromisoformat(date_prevu).date()
+                
+                if date_entree <= date_prevu:
+                    return 'arrive'
+                else:
+                    return 'arrive_en_retard'
+            
+            # Si pas d'historique mais position actuelle correspond
+            elif position_actuelle_correspond:
+                # Utiliser la date actuelle pour la comparaison
+                date_actuelle = date.today()
+                
+                if isinstance(date_prevu, str):
+                    from datetime import datetime
+                    date_prevu = datetime.fromisoformat(date_prevu).date()
+                
+                if date_actuelle <= date_prevu:
+                    return 'arrive'
+                else:
+                    return 'arrive_en_retard'
+        
+        # Le point n'existe pas encore dans l'historique et position actuelle ne correspond pas
+        return 'en_attente'
+    
+    def _determiner_ordre_position_actuelle(self, messeur, points_trajet):
+        """
+        Détermine l'ordre approprié pour insérer la position actuelle
+        basé sur l'historique chronologique des positions
+        """
+        # Si la position actuelle correspond exactement à un point existant, utiliser son ordre
+        for point in points_trajet:
+            if point['nom_lieu'] == messeur.lieu:
+                return point['ordre']
+        
+        # Obtenir tous les lieux visités dans l'ordre chronologique depuis PositionHistorique
+        positions_visitees = PositionHistorique.objects.filter(
+            messeur_tracking=messeur,
+            date_entree__isnull=False
+        ).order_by('date_entree').values_list('lieu', flat=True)
+        
+        if not positions_visitees:
+            # Si pas d'historique, placer au début
+            return 0.5
+        
+        # Trouver le dernier point du trajet que l'objet a visité
+        dernier_point_visite_ordre = -1
+        
+        for position_visitee in positions_visitees:
+            for point in points_trajet:
+                # Vérifier si la position visitée correspond à un point du trajet
+                if (point['nom_lieu'].lower() in position_visitee.lower() or 
+                    position_visitee.lower() in point['nom_lieu'].lower()):
+                    # Mettre à jour le dernier point visité si c'est plus récent
+                    if point['ordre'] > dernier_point_visite_ordre:
+                        dernier_point_visite_ordre = point['ordre']
+        
+        # Si on a trouvé un point visité, placer la position actuelle juste après
+        if dernier_point_visite_ordre >= 0:
+            return dernier_point_visite_ordre + 0.1
+        
+        # Sinon, essayer de déterminer la position logique
+        # Basé sur la distance géographique ou l'ordre des points
+        if points_trajet:
+            # Trouver le point le plus proche géographiquement de la position actuelle
+            derniere_position = PositionHistorique.objects.filter(
+                messeur_tracking=messeur
+            ).order_by('-timestamp').first()
+            
+            if derniere_position:
+                position_actuelle_lat = derniere_position.latitude
+                position_actuelle_lon = derniere_position.longitude
+                
+                distances = []
+                for point in points_trajet:
+                    if point['latitude'] and point['longitude']:
+                        # Calcul simple de distance (approximatif)
+                        distance = ((point['latitude'] - position_actuelle_lat) ** 2 + 
+                                  (point['longitude'] - position_actuelle_lon) ** 2) ** 0.5
+                        distances.append((distance, point['ordre']))
+                
+                if distances:
+                    # Trier par distance et prendre le point le plus proche
+                    distances.sort()
+                    point_proche_ordre = distances[0][1]
+                    return point_proche_ordre + 0.1
+        
+        # Par défaut, placer au milieu
+        return len(points_trajet) / 2
+def trajet_sse_stream(request, trajet_id=None):
+    """
+    SSE Stream sans heartbeat - Version simplifiée
+    """
+    def stream_real_database_data():
+        while True:
+            try:
+                if trajet_id:
+                    trajets = PathTemplate.objects.filter(id=trajet_id)
+                else:
+                    trajets = PathTemplate.objects.all()
+
+                for trajet in trajets:
+                    try:
+                        messeur = MesseurTracking.objects.filter(path=trajet).first()
+                        if messeur:
+                            # Vérifier les mises à jour en cache
+                            if trajet_id:
+                                cache_key = f"sse_update_{trajet_id}"
+                                cache_update = cache.get(cache_key)
+                                if cache_update:
+                                    yield f"data: {cache_update}\n\n"
+                                    cache.delete(cache_key)
+                                    continue
+
+                            # Obtenir les données réelles
+                            latest_position = PositionHistorique.objects.filter(
+                                messeur_tracking=messeur
+                            ).order_by('-timestamp').first()
+
+                            if latest_position:
+                                current_lat = latest_position.latitude
+                                current_lng = latest_position.longitude
+                                lieu_actuel = latest_position.lieu
+                            else:
+                                current_lat = trajet.latitude_src or 0.0
+                                current_lng = trajet.longitude_src or 0.0
+                                lieu_actuel = messeur.lieu or trajet.source
+
+                            # Format TrajetList
+                            trajet_data = {
+                                'type': 'trajet_update',
+                                'id': trajet.id,
+                                'nom_trajet': str(trajet.nom) if trajet.nom else f"Trajet {trajet.id}",
+                                'objet_nom': f"{messeur.object_tracking.categorie}_{messeur.capture_rfid.num_serie}",
+                                'capteur_num_serie': str(messeur.capture_rfid.num_serie),
+                                'etat_objet': messeur.object_tracking.etat,
+                                'localisation_actuelle': lieu_actuel,
+                                'latitude_actuelle': round(float(current_lat), 6),
+                                'longitude_actuelle': round(float(current_lng), 6),
+                                'derniere_mise_a_jour': messeur.date_prevu.isoformat() if messeur.date_prevu else datetime.now().date().isoformat(),
+                                'heure_derniere_mise_a_jour': messeur.heure.strftime('%H:%M:%S') if messeur.heure else datetime.now().time().strftime('%H:%M:%S'),
+                                'lien_historique': f'/api/captures/trajet-historique/{trajet.id}/',
+                                'timestamp': datetime.now().isoformat()
+                            }
+
+                            yield f"data: {json.dumps(trajet_data)}\n\n"
+
+                    except Exception as e:
+                        error_data = {
+                            'type': 'error',
+                            'message': str(e),
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        yield f"data: {json.dumps(error_data)}\n\n"
+
+                time.sleep(2)  # Mise à jour toutes les 2 secondes
+
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                time.sleep(5)
+
+    response = StreamingHttpResponse(stream_real_database_data(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    return response
+
+
+'''
+def trajet_stream_all(request):
+    """
+    Function-based SSE view for real-time streaming of all trajets with SAME structure as TrajetListView
+    GET /api/captures/trajet-stream-all/
+    """
+
+    def stream_all_real_data():
+        """
+        Stream REAL data for ALL trajets from database using SAME format as TrajetListSerializer
+        """
+        while True:
+            try:
+                # Check for broadcast updates in cache
+                cache_update = cache.get("sse_update_all")
+                if cache_update:
+                    yield f"data: {cache_update}\n\n"
+                    cache.delete("sse_update_all")
+                
+                # Get all trajets
+                trajets = PathTemplate.objects.all()
+                
+                for trajet in trajets:
+                    try:
+                        messeur = MesseurTracking.objects.filter(path=trajet).first()
+                        if messeur:
+                            # Get REAL latest position
+                            latest_position = PositionHistorique.objects.filter(
+                                messeur_tracking=messeur
+                            ).order_by('-timestamp').first()
+
+                            # Use REAL data from database
+                            if latest_position:
+                                current_lat = latest_position.latitude
+                                current_lng = latest_position.longitude
+                                lieu_actuel = latest_position.lieu
+                                timestamp_reel = latest_position.timestamp
+                            else:
+                                # Fallback to trajet coordinates
+                                current_lat = trajet.latitude_src if trajet.latitude_src else 0.0
+                                current_lng = trajet.longitude_src if trajet.longitude_src else 0.0
+                                lieu_actuel = messeur.lieu if messeur.lieu else trajet.source
+                                timestamp_reel = datetime.combine(messeur.date_prevu, messeur.heure) if messeur.date_prevu and messeur.heure else datetime.now()
+
+                            # Calculate distances
+                            def calculate_distance(lat1, lon1, lat2, lon2):
+                                try:
+                                    R = 6371000  # Earth radius in meters
+                                    dlat = math.radians(lat2 - lat1)
+                                    dlon = math.radians(lon2 - lon1)
+                                    a = (math.sin(dlat/2) * math.sin(dlat/2) + 
+                                         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * 
+                                         math.sin(dlon/2) * math.sin(dlon/2))
+                                    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                                    return R * c
+                                except Exception:
+                                    return 0
+
+                            distance_source = calculate_distance(
+                                current_lat, current_lng,
+                                trajet.latitude_src or 0, trajet.longitude_src or 0
+                            )
+                            distance_destination = calculate_distance(
+                                current_lat, current_lng,
+                                trajet.latitude_dest or 0, trajet.longitude_dest or 0
+                            )
+
+                            # Calculate progression
+                            total_distance = calculate_distance(
+                                trajet.latitude_src or 0, trajet.longitude_src or 0,
+                                trajet.latitude_dest or 0, trajet.longitude_dest or 0
+                            )
+                            progression = 0
+                            if total_distance > 0:
+                                progression = max(0, min(100, ((total_distance - distance_destination) / total_distance) * 100))
+
+                            # Determiner l'état de l'objet (même logique que TrajetListSerializer)
+                            etat_objet = _get_etat_objet_intelligent(messeur, trajet)
+                            
+                            # Construire le lien historique
+                            lien_historique = f'/api/captures/trajet-historique/{trajet.id}/'
+
+                            # SAME STRUCTURE AS TrajetListSerializer
+                            trajet_data = {
+                                'type': 'trajet_list_update',  # Type spécifique pour distinguer
+                                'id': trajet.id,
+                                'nom_trajet': str(trajet.nom) if trajet.nom else f"Trajet {trajet.id}",
+                                'objet_nom': f"{messeur.object_tracking.categorie}_{messeur.capture_rfid.num_serie}" if messeur.object_tracking and messeur.capture_rfid else "Non assigné",
+                                'capteur_num_serie': str(messeur.capture_rfid.num_serie) if messeur.capture_rfid else "N/A",
+                                'etat_objet': etat_objet,  # État intelligent
+                                'localisation_actuelle': lieu_actuel,  # REAL location
+                                'latitude_actuelle': round(float(current_lat), 6),  # REAL coordinates
+                                'longitude_actuelle': round(float(current_lng), 6),  # REAL coordinates
+                                'derniere_mise_a_jour': messeur.date_prevu.isoformat() if messeur.date_prevu else datetime.now().date().isoformat(),
+                                'heure_derniere_mise_a_jour': messeur.heure.strftime('%H:%M:%S') if messeur.heure else datetime.now().time().strftime('%H:%M:%S'),
+                                'lien_historique': lien_historique,
+                                
+                                # Données supplémentaires pour SSE (optionnelles mais utiles)
+                                'duree_passage': str(messeur.duree_passage) if messeur.duree_passage else "00:00:00",
+                                'distances': {
+                                    'source': round(distance_source, 2),
+                                    'destination': round(distance_destination, 2)
+                                },
+                                'progression': round(progression, 1),
+                                'timestamp': timestamp_reel.isoformat() if hasattr(timestamp_reel, 'isoformat') else datetime.now().isoformat(),
+                                'data_source': 'database'
+                            }
+
+                            yield f"data: {json.dumps(trajet_data)}\n\n"
+
+                    except Exception as e:
+                        error_data = {
+                            'type': 'trajet_error',
+                            'trajet_id': trajet.id if trajet else 'unknown',
+                            'message': str(e),
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        yield f"data: {json.dumps(error_data)}\n\n"
+
+                # Heartbeat avec format TrajetList
+                heartbeat_data = {
+                    'type': 'heartbeat',
+                    'timestamp': datetime.now().isoformat(),
+                    'active_trajets': trajets.count() if trajets else 0,
+                    'data_source': 'database',
+                    'format': 'trajet_list_compatible'
+                }
+                yield f"data: {json.dumps(heartbeat_data)}\n\n"
+
+                time.sleep(2)  # Update every 2 seconds
+
+            except Exception as e:
+                error_data = {
+                    'type': 'general_error',
+                    'message': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+                time.sleep(5)
+
+    response = StreamingHttpResponse(stream_all_real_data(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    return response
+
+
+def _get_etat_objet_intelligent(messeur, trajet):
+    """
+    Fonction helper pour déterminer l'état intelligent de l'objet
+    (même logique que TrajetListSerializer.get_etat_objet)
+    """
+    from datetime import datetime, timedelta
+    
+    if messeur and messeur.object_tracking:
+        objet = messeur.object_tracking
+        
+        # Vérifier si l'objet est perdu (pas de mise à jour récente)
+        if messeur.date_prevu and messeur.heure:
+            last_update = datetime.combine(messeur.date_prevu, messeur.heure)
+            time_diff = (datetime.now() - last_update).total_seconds()
+            
+            if time_diff > 172800:  # Plus de 2 heures sans signal
+                if objet.etat != 'perdu':
+                    objet.etat = 'perdu'
+                    objet.save()
+                return 'perdu'
+        
+        # Logique basée sur la position
+        if messeur.lieu == trajet.source:
+            if objet.etat != 'stocke':
+                objet.etat = 'stocke'
+                objet.save()
+            return 'stocke'
+        elif messeur.lieu == trajet.destination:
+            if objet.etat != 'reçu':
+                objet.etat = 'reçu'
+                objet.save()
+            return 'reçu'
+        else:
+            if objet.etat not in ['en_transit', 'perdu']:
+                objet.etat = 'en_transit'
+                objet.save()
+            return 'en_transit'
+        
+        return objet.etat
+    return "Inconnu"
+'''
+
+class GeocodeAddressView(APIView):
+    """
+    API pour convertir une adresse en coordonnées
+    POST /api/captures/geocode/
+    """
+    
+    def post(self, request, *args, **kwargs):
+        address = request.data.get('address')
+        if not address:
+            return Response({'error': 'Adresse requise'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            geolocation_service = GeolocationService()
+            result = geolocation_service.process_location(address)
+            
+            return Response({
+                'success': True,
+                'result': result
+            })
+            
+        except ValidationError as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ReverseGeocodeView(APIView):
+    """
+    API pour convertir des coordonnées en adresse
+    POST /api/captures/reverse-geocode/
+    """
+    
+    def post(self, request, *args, **kwargs):
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        
+        if latitude is None or longitude is None:
+            return Response({
+                'error': 'Latitude et longitude requises'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            geolocation_service = GeolocationService()
+            result = geolocation_service.geocoder.reverse_geocode(latitude, longitude)
+            
+            return Response({
+                'success': True,
+                'result': result
+            })
+            
+        except ValidationError as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SearchPlacesView(APIView):
+    """
+    API pour rechercher des lieux
+    GET /api/captures/search-places/?q=query&limit=5
+    """
+    
+    def get(self, request, *args, **kwargs):
+        query = request.query_params.get('q')
+        limit = int(request.query_params.get('limit', 5))
+        
+        if not query:
+            return Response({'error': 'Paramètre de recherche requis'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            geolocation_service = GeolocationService()
+            results = geolocation_service.search_places(query, limit)
+            
+            return Response({
+                'success': True,
+                'results': results
+            })
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CheckObjetStatusView(APIView):
+    """
+    API pour vérifier et mettre à jour le statut de tous les objets
+    POST /api/captures/check-objet-status/
+    """
+    
+    def post(self, request):
+        
+        
+        updated_objects = []
+        
+        try:
+            # Récupérer tous les trajets actifs
+            messeurs = MesseurTracking.objects.select_related('object_tracking', 'path').all()
+            
+            for messeur in messeurs:
+                objet = messeur.object_tracking
+                path = messeur.path
+                previous_etat = objet.etat
+                
+                # Vérifier si l'objet est perdu
+                if messeur.date_prevu and messeur.heure:
+                    last_update = datetime.combine(messeur.date_prevu, messeur.heure)
+                    time_diff = (datetime.now() - last_update).total_seconds()
+                    
+                    if time_diff > 7200:  # Plus de 2 heures
+                        objet.etat = 'perdu'
+                    elif messeur.lieu == path.source:
+                        objet.etat = 'stocke'
+                    elif messeur.lieu == path.destination:
+                        objet.etat = 'arrive'
+                    else:
+                        objet.etat = 'en_transit'
+                
+                # Sauvegarder si l'état a changé
+                if objet.etat != previous_etat:
+                    objet.save()
+                    updated_objects.append({
+                        'objet_nom': f"{objet.categorie}_{messeur.capture_rfid.num_serie}",
+                        'ancien_etat': previous_etat,
+                        'nouvel_etat': objet.etat,
+                        'lieu_actuel': messeur.lieu,
+                        'derniere_mise_a_jour': messeur.date_prevu.isoformat() if messeur.date_prevu else None
+                    })
+            
+            return Response({
+                'success': True,
+                'message': f'{len(updated_objects)} objets mis à jour',
+                'objets_modifies': updated_objects
+            })
+            
+        except Exception as e:
+            return Response({
+                'error': f'Erreur lors de la vérification: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
