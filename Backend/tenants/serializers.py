@@ -150,7 +150,7 @@ class ClientDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Client 
-        fields = ['id' ,'industrie' ,'latitude' ,'longitude', 'status' , 'telephone', 'email' ,'created_at' , 'sites' ]
+        fields = ['nom_entreprise' ,'industrie' , 'adresse', 'status' , 'telephone', 'email' ,'created_at' , 'sites' ]
 
     def get_sites(self , obj):
         schema_name = self.context.get('schema_name')

@@ -44,11 +44,10 @@ class SiteSerializer(serializers.ModelSerializer) :
         return {'site_id' : instance.id}
 
 class SiteDisplaySerializer(serializers.ModelSerializer): 
-    parametre =serializers.SerializerMethodField()
 
     class Meta: 
         model = Site 
-        fields = ['id','nom', 'adresse', 'date_ajout', 'parametre']
+        fields = ['id','nom', 'adresse', 'longitude', 'latitude','asset_tracking']
 
     def get_parametre(self, obj):
         # Get all parametre names for this site
