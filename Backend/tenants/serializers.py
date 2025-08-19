@@ -132,6 +132,7 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
 
         return client
 
+
 class ClientListSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source = 'user.email' , read_only = True)
     client = serializers.CharField(source='nom_entreprise')

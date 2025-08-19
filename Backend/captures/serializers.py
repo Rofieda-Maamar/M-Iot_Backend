@@ -35,14 +35,37 @@ class CaptureSiteSerializer(serializers.ModelSerializer) :
 
 
 
-
+class ObjectTrackingSerializer(serializers.ModelSerializer):
+    class Meta : 
+        model=ObjectTracking 
+        fields = '__all__'
 
 
 
 class TagRfidSerializer(serializers.ModelSerializer) :
+    ObjectTracking = ObjectTrackingSerializer(read_only=True)
+    categorie = serializers.CharField(write_only=True)
+
     class Meta : 
         model = TagRfid
-        fields = ['site' ,'num_serie' , 'type' ,'date_install']
+        fields = ['site' ,'num_serie' , 'type' ,'date_install' ,'ObjectTracking','categorie']
+
+    def create(self, validated_data):
+        categorie = validated_data.pop("categorie")
+        tag_rfid = TagRfid.objects.create(**validated_data)
+
+        ## creat the object traking linked to the tagrfid 
+        ObjectTracking.objects.create(
+            site=tag_rfid.site, 
+            capture_RFID=tag_rfid, 
+            categorie=categorie,
+            etat= "stocké"
+        )
+        return tag_rfid
+
+
+
+
 
 
 class RealtimeParametreSerializer(serializers.ModelSerializer):

@@ -164,12 +164,13 @@ class DisplayMachineView(generics.ListAPIView) :
 
     def list(self, request, *args, **kwargs):
         schema_name = self.get_serializer_context().get('schema_name')
-        machine_id = request.query_params.get("machine_id")
+        site_id = request.query_params.get("site_id")
+
+        if not site_id : 
+            raise ValidationError({"site_id":"required to list machines of this site"})
 
         with schema_context(schema_name):
-            queryset = Machine.objects.filter(id=machine_id)
-            if machine_id : 
-                queryset = queryset.filter(id=machine_id)
+            queryset = Machine.objects.filter(site_id=site_id)
             serializer = self.get_serializer(queryset , many = True)
             return Response(serializer.data)
 

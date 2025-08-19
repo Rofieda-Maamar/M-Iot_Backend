@@ -4,9 +4,10 @@ Content-Type:application/json
     
     {
         "site" : 1,
-        "num_serie": "AD",
+        "num_serie": "num-unique",
         "type": "actif",
-        "date_install": "2025-08-14"
+        "date_install": "2025-08-14",
+        "categorie": "outil"
     }
 
 
