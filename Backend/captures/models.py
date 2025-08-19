@@ -53,6 +53,7 @@ class PathTemplatePoint(models.Model):
     template = models.ForeignKey(PathTemplate, on_delete=models.CASCADE)
     point = models.ForeignKey(TrackingPoint, on_delete=models.CASCADE)
     ordre = models.IntegerField()
+    date_prevu = models.DateField(null=True, blank=True, help_text="Date prévue de passage à ce point")
 
 class MesseurTracking(models.Model):
     capture_rfid = models.ForeignKey(TagRfid, on_delete=models.CASCADE)
@@ -60,13 +61,34 @@ class MesseurTracking(models.Model):
     object_tracking = models.ForeignKey(ObjectTracking, on_delete=models.CASCADE)
     date_debut = models.DateField()
     date_fin = models.DateField()
-    date_prevu = models.DateField()
-    lieu = models.CharField(max_length=255)
+    date_prevu = models.DateField(help_text="Date prévue pour la position actuelle")
+    lieu = models.CharField(max_length=255, help_text="Lieu actuel de l'objet")
     heure = models.TimeField()
     duree_passage = models.TimeField()
 
     class Meta:
         unique_together = ('capture_rfid', 'path')
+
+
+class PositionHistorique(models.Model):
+    """
+    Modèle pour sauvegarder l'historique des positions d'un objet
+    """
+    messeur_tracking = models.ForeignKey(MesseurTracking, on_delete=models.CASCADE, related_name='positions_historique')
+    lieu = models.CharField(max_length=255, help_text="Nom du lieu")
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    timestamp = models.DateTimeField(help_text="Timestamp de la position")
+    duree_dans_lieu = models.DurationField(help_text="Durée totale passée dans ce lieu", null=True, blank=True)
+    date_entree = models.DateTimeField(help_text="Date/heure d'entrée dans ce lieu", null=True, blank=True)
+    date_sortie = models.DateTimeField(help_text="Date/heure de sortie de ce lieu", null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['messeur_tracking', '-timestamp']),
+            models.Index(fields=['lieu', '-timestamp']),
+        ]
 
 
 

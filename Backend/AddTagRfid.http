@@ -1,10 +1,10 @@
 ###
-POST http://127.0.0.1:8000/api/captures/add-tag-rfid/?client_id=2 HTTP/1.1
+POST http://127.0.0.1:8000/api/captures/add-tag-rfid/?client_id=1 HTTP/1.1
 Content-Type:application/json 
     
     {
         "site" : 1,
-        "num_serie": "AD",
+        "num_serie": "RF02",
         "type": "actif",
         "date_install": "2025-08-14"
     }
