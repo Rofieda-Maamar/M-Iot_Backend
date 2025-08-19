@@ -89,6 +89,7 @@ class UploadClientUserView(APIView):
 
 class displayListUsersClientView(APIView) :
     serializer_class = displayListUsersClientSerializer
+
     def get(self, request, *args, **kwargs):
         client_id = request.query_params.get("client_id")
         site_id = kwargs.get("pk") or request.query_params.get("site_id")
@@ -99,15 +100,9 @@ class displayListUsersClientView(APIView) :
             client = Client.objects.get(id=client_id)
         except Client.DoesNotExist:
             raise NotFound("Client with this id was not found")
-        
 
         schema_name = client.schema_name
-
-        # ✅ Ensure query is executed inside schema_context
         with schema_context(schema_name):
             users = ClientUser.objects.filter(site_id=site_id)
-            if not users.exists() : 
-                raise NotFound("No user found for this Site")
-
             serializer =  self.serializer_class(users, many=True)
             return Response(serializer.data)

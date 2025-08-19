@@ -28,7 +28,7 @@ class AllCaptureMachinesView(APIView):
                 serializer = CaptureMachineSerializer(captures, many=True)
                 # On ajoute une info pour savoir de quel client ça vient
                 for item in serializer.data:
-                     item['client'] = client.nom_entreprise # ou client.name selon ton modèle
+                    item['client'] = client.nom_entreprise 
                 all_captures.extend(serializer.data)
 
         return Response(all_captures)
