@@ -43,6 +43,9 @@ class SiteSerializer(serializers.ModelSerializer) :
     def to_representation(self, instance):
         return {'site_id' : instance.id}
 
+
+
+
 class SiteDisplaySerializer(serializers.ModelSerializer): 
 
     class Meta: 

@@ -106,3 +106,4 @@ class displayListUsersClientView(APIView) :
             users = ClientUser.objects.filter(site_id=site_id)
             serializer =  self.serializer_class(users, many=True)
             return Response(serializer.data)
+

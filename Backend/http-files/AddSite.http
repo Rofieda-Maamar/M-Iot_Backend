@@ -52,3 +52,12 @@
                 }
             ]
         }
+
+
+
+
+curl -X POST "http://127.0.0.1:8000/api/site/upload-sites/?client_id=2" -F "file=@UploadSites.xlsx"
+
+
+
+#curl -X POST "http://127.0.0.1:8000/api/captures/upload-tag-rfid/?client_id=2" \ -F "file=@tagrfid1.xlsx" \ -F "site=1"
