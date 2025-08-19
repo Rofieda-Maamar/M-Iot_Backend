@@ -1574,6 +1574,9 @@ class TrajetHistoriqueView(APIView):
         
         # Par défaut, placer au milieu
         return len(points_trajet) / 2
+    
+
+    
 def trajet_sse_stream(request, trajet_id=None):
     """
     SSE Stream sans heartbeat - Version simplifiée
