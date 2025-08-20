@@ -18,3 +18,6 @@ Content-Type:application/json
 
 # the tagrfid1.xlsx file is in tickets folder 
 # the site_id lazem ykon bcs mchi logique ykon in the file 
+
+
+GET http://127.0.0.1:8000/api/captures/list-tag-rfid/?client_id=1&site_id=1 HTTP/1.1

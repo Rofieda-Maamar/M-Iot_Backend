@@ -65,7 +65,10 @@ class TagRfidSerializer(serializers.ModelSerializer) :
 
 
 
-
+class TagRfidListSerializer(serializers.ModelSerializer) : 
+    class Meta : 
+        model=  TagRfid
+        fields = '__all__'
 
 
 class RealtimeParametreSerializer(serializers.ModelSerializer):

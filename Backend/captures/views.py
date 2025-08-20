@@ -8,7 +8,7 @@ import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
 # Create your views here.
-from .serializers import TagRfidSerializer 
+from .serializers import *
 from rest_framework import generics
 from tenants.models import Client
 from .models import * 
@@ -155,3 +155,37 @@ def sse_realtime_parametre(request):
     response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
     response['Cache-Control'] = 'no-cache'
     return response
+
+
+
+# complete it mb3da
+class ListTagRfidView(generics.ListAPIView) : 
+    queryset = TagRfid.objects.all()
+    serializer_class = TagRfidListSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        client_id = self.request.query_params.get("client_id")
+        if not client_id:
+            raise ValidationError("client_id is required to list sites for a tenant.")
+
+        try : 
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist: 
+            raise NotFound("Client with this id was not found")
+        
+        # Add schema name to context
+        context['schema_name'] = client.schema_name
+        return context
+
+    def list(self, request, *args, **kwargs):
+        schema_name = self.get_serializer_context().get('schema_name')
+        site_id = request.query_params.get("site_id")
+
+        if not site_id : 
+            raise ValidationError({"site_id":"required to list machines of this site"})
+
+        with schema_context(schema_name):
+            queryset = TagRfid.objects.filter(site_id=site_id)
+            serializer = self.get_serializer(queryset , many = True)
+            return Response(serializer.data)

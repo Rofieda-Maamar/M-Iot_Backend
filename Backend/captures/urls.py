@@ -5,5 +5,6 @@ urlpatterns = [
 
     path('add-tag-rfid/', CreateTagRfidView.as_view(), name='add-tag-rfid'),
     path('upload-tag-rfid/', UploadTagRfidUserView.as_view(), name='upload-tag-rfid'),
+    path('list-tag-rfid/', ListTagRfidView.as_view(), name='list-tag-rfid'),
     path('sse/realtime-parametre/', sse_realtime_parametre, name='sse_realtime_parametre'),
 ]
