@@ -140,13 +140,15 @@ GET http://rofieda.lvh.me:8000/api/captures/trajet-stream/6/ HTTP/1.1
 Accept: text/event-stream
 Cache-Control: no-cache
 
-
-
+### Test SSE - Stream temps réel tous les trajets en meme temps 
+GET http://rofieda.lvh.me:8000/api/captures/trajet-stream-all/ HTTP/1.1
+Accept: text/event-stream
+Cache-Control: no-cachee
 
 
 
 # Test SSE tous les trajets
-curl -N -H "Accept: text/event-stream" -H "Cache-Control: no-cache" http://rofieda.lvh.me:8000/api/captures/trajet-stream/
+curl -N -H "Accept: text/event-stream" -H "Cache-Control: no-cache" http://rofieda.lvh.me:8000/api/captures/trajet-stream-all/
 
 # Test trajet spécifique
 curl -N -H "Accept: text/event-stream" -H "Cache-Control: no-cache" http://rofieda.lvh.me:8000/api/captures/trajet-stream/6/
