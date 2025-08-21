@@ -349,7 +349,7 @@ class TrajetListView(generics.ListAPIView):
 
 
 
-class UpdatePositionRealTimeView(APIView):
+class UpdatePositionRealTimeView2(APIView):
     """
     API pour recevoir les mises à jour de position temps réel des tags RFID
     POST /api/captures/update-position-realtime/
@@ -665,6 +665,508 @@ class UpdatePositionRealTimeView(APIView):
         
         # Stocker aussi pour tous les trajets
         cache.set("sse_update_all", json.dumps(data), 300)
+
+class UpdatePositionRealTimeView(APIView):
+    """
+    API pour recevoir les mises à jour de position temps réel des tags RFID
+    POST /api/captures/update-position-realtime/
+    """
+    
+    def post(self, request):
+        tag_num_serie = request.data.get('tag_rfid_num_serie')
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        timestamp_str = request.data.get('timestamp')
+        
+        print(f"DEBUG - Données reçues:")
+        print(f"   Tag: {tag_num_serie}")
+        print(f"   Coordonnées: {latitude}, {longitude}")
+        print(f"   Timestamp brut: {timestamp_str}")
+        
+        if not all([tag_num_serie, latitude, longitude]):
+            return Response({
+                'error': 'tag_rfid_num_serie, latitude et longitude sont requis'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # CORRECTION COMPLÈTE du parsing timestamp
+        try:
+            from django.utils import timezone
+            from datetime import datetime
+            import pytz
+            
+            if timestamp_str:
+                # Nettoyer le timestamp
+                if timestamp_str.endswith('Z'):
+                    timestamp_clean = timestamp_str[:-1] + '+00:00'
+                else:
+                    timestamp_clean = timestamp_str
+                
+                print(f"Timestamp nettoyé: {timestamp_clean}")
+                
+                # Parser le timestamp UTC
+                timestamp_utc = datetime.fromisoformat(timestamp_clean)
+                print(f"Timestamp UTC parsé: {timestamp_utc}")
+                
+                # S'assurer qu'il est en UTC
+                if timestamp_utc.tzinfo is None:
+                    timestamp_utc = pytz.UTC.localize(timestamp_utc)
+                
+                # Convertir en heure d'Algérie (UTC+1)
+                algerie_tz = pytz.timezone('Africa/Algiers')
+                timestamp_local = timestamp_utc.astimezone(algerie_tz)
+                print(f"Timestamp local Algérie: {timestamp_local}")
+                
+                # EXTRACTION SÉCURISÉE de la date et heure
+                new_date = timestamp_local.date()
+                raw_time = timestamp_local.time()
+                
+                print(f"Date extraite: {new_date}")
+                print(f"Heure brute: {raw_time}")
+                print(f"Composants heure: {raw_time.hour}h {raw_time.minute}m {raw_time.second}s")
+                
+                # VALIDATION ET CORRECTION si nécessaire
+                if raw_time.hour >= 24:
+                    print(f"PROBLÈME: Heure >= 24 détectée: {raw_time.hour}")
+                    # Corriger l'heure
+                    corrected_hour = raw_time.hour % 24
+                    days_to_add = raw_time.hour // 24
+                    
+                    from datetime import time, timedelta
+                    new_heure = time(corrected_hour, raw_time.minute, raw_time.second)
+                    new_date = new_date + timedelta(days=days_to_add)
+                    
+                    print(f"Correction appliquée: {new_heure}, Date ajustée: {new_date}")
+                else:
+                    new_heure = raw_time
+                    print(f"Heure valide: {new_heure}")
+                
+                # Reconstruire le datetime final
+                new_datetime = datetime.combine(new_date, new_heure)
+                new_datetime = algerie_tz.localize(new_datetime.replace(tzinfo=None))
+                
+            else:
+                # Pas de timestamp fourni, utiliser l'heure actuelle
+                print("Pas de timestamp fourni, utilisation heure actuelle")
+                now = timezone.now()
+                new_date = now.date()
+                new_heure = now.time()
+                new_datetime = now
+                
+        except Exception as e:
+            print(f"ERREUR dans parsing timestamp: {str(e)}")
+            print(f"   Type erreur: {type(e).__name__}")
+            
+            # Fallback sécurisé
+            now = timezone.now()
+            new_date = now.date()
+            new_heure = now.time()
+            new_datetime = now
+            
+            return Response({
+                'error': f'Erreur parsing timestamp: {str(e)}',
+                'timestamp_recu': timestamp_str,
+                'fallback_utilise': new_datetime.isoformat()
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Géolocalisation inverse automatique pour déterminer le lieu
+        lieu = self.get_location_from_coordinates(latitude, longitude)
+        
+        try:
+            # Trouver le tag RFID
+            tag_rfid = TagRfid.objects.get(num_serie=tag_num_serie)
+            
+            # Trouver le MesseurTracking actif
+            messeur = MesseurTracking.objects.filter(
+                capture_rfid=tag_rfid
+            ).order_by('-date_debut').first()
+            
+            if not messeur:
+                return Response({
+                    'error': f'Aucun trajet actif pour le tag {tag_num_serie}'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Sauvegarder l'ancienne position actuelle AVANT de la modifier
+            previous_lieu = messeur.lieu
+            previous_latitude, previous_longitude = self.get_current_coordinates(messeur)
+            
+            # ÉTAPE 1: SAUVEGARDER L'ANCIENNE POSITION DANS L'HISTORIQUE
+            if messeur.lieu and messeur.date_prevu and messeur.heure:
+                try:
+                    ancienne_datetime = datetime.combine(messeur.date_prevu, messeur.heure)
+                    ancienne_datetime = timezone.make_aware(ancienne_datetime) if timezone.is_naive(ancienne_datetime) else ancienne_datetime
+                except:
+                    ancienne_datetime = new_datetime
+                
+                # Sauvegarder l'ancienne position dans l'historique
+                ancienne_position = PositionHistorique.objects.create(
+                    messeur_tracking=messeur,
+                    lieu=messeur.lieu,
+                    latitude=previous_latitude if previous_latitude else 0.0,
+                    longitude=previous_longitude if previous_longitude else 0.0,
+                    timestamp=ancienne_datetime,
+                    date_sortie=new_datetime
+                )
+                
+                # Si l'objet change de lieu, calculer la durée passée dans l'ancien lieu
+                if previous_lieu != lieu:
+                    premiere_entree_ancien_lieu = PositionHistorique.objects.filter(
+                        messeur_tracking=messeur,
+                        lieu=previous_lieu,
+                        date_entree__isnull=False
+                    ).order_by('timestamp').first()
+                    
+                    if premiere_entree_ancien_lieu and premiere_entree_ancien_lieu.date_entree:
+                        duree_dans_ancien_lieu = new_datetime - premiere_entree_ancien_lieu.date_entree
+                        ancienne_position.duree_dans_lieu = duree_dans_ancien_lieu
+                        ancienne_position.date_entree = premiere_entree_ancien_lieu.date_entree
+                        ancienne_position.save()
+            
+            # ÉTAPE 2: CRÉER L'ENTRÉE POUR LA NOUVELLE POSITION
+            nouvelle_position = PositionHistorique.objects.create(
+                messeur_tracking=messeur,
+                lieu=lieu,
+                latitude=float(latitude),
+                longitude=float(longitude),
+                timestamp=new_datetime,
+                date_entree=new_datetime
+            )
+            
+            # ÉTAPE 3: CALCULER LA DURÉE DE PASSAGE
+            if previous_lieu == lieu:
+                # L'objet est toujours dans le même lieu
+                premiere_entree = PositionHistorique.objects.filter(
+                    messeur_tracking=messeur,
+                    lieu=lieu,
+                    date_entree__isnull=False
+                ).order_by('timestamp').first()
+                
+                if premiere_entree and premiere_entree.date_entree:
+                    duree_dans_lieu = new_datetime - premiere_entree.date_entree
+                    heures = int(duree_dans_lieu.total_seconds() // 3600)
+                    minutes = int((duree_dans_lieu.total_seconds() % 3600) // 60)
+                    secondes = int(duree_dans_lieu.total_seconds() % 60)
+                    messeur.duree_passage = f"{heures:02d}:{minutes:02d}:{secondes:02d}"
+                else:
+                    messeur.duree_passage = "00:00:00"
+            else:
+                # L'objet a changé de lieu - commencer un nouveau compteur
+                messeur.duree_passage = "00:00:00"
+            
+            # ÉTAPE 4: METTRE À JOUR MESSEURTRACKING AVEC LA NOUVELLE POSITION
+            messeur.lieu = lieu
+            messeur.date_prevu = new_date
+            messeur.heure = new_heure
+            
+            # VALIDATION FINALE avant sauvegarde
+            try:
+                # Test de création d'un objet time pour vérifier la validité
+                from datetime import time as time_class
+                test_time = time_class(new_heure.hour, new_heure.minute, new_heure.second)
+                print(f"Validation finale OK: {test_time}")
+            except ValueError as ve:
+                print(f"ERREUR validation finale: {ve}")
+                return Response({
+                    'error': f'Heure finale invalide: {ve}',
+                    'heure_problematique': str(new_heure),
+                    'timestamp_source': timestamp_str
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Ajouter les coordonnées GPS dans MesseurTracking si les champs existent
+            if hasattr(messeur, 'latitude'):
+                messeur.latitude = float(latitude)
+            if hasattr(messeur, 'longitude'):
+                messeur.longitude = float(longitude)
+            
+            # LOGIQUE INTELLIGENTE POUR L'ÉTAT DE L'OBJET
+            objet = messeur.object_tracking
+            path = messeur.path
+            
+            # Fonction pour calculer la distance entre deux points GPS
+            def calculate_distance(lat1, lon1, lat2, lon2):
+                R = 6371  # Rayon de la Terre en km
+                dlat = math.radians(lat2 - lat1)
+                dlon = math.radians(lon2 - lon1)
+                a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                return R * c * 1000  # Distance en mètres
+            
+            # Distance par rapport à la source
+            distance_source = calculate_distance(
+                float(latitude), float(longitude),
+                path.latitude_src, path.longitude_src
+            )
+            
+            # Distance par rapport à la destination
+            distance_destination = calculate_distance(
+                float(latitude), float(longitude),
+                path.latitude_dest, path.longitude_dest
+            )
+            
+            # Logique de détermination de l'état
+            if distance_source <= 100:  # Dans un rayon de 100m de la source
+                if objet.etat != 'stocke':
+                    objet.etat = 'stocke'
+                    objet.save()
+            elif distance_destination <= 100:  # Dans un rayon de 100m de la destination
+                if objet.etat != 'reçu':
+                    objet.etat = 'reçu'
+                    objet.save()
+            else:  # Entre source et destination - FORCE l'état en_transit car on reçoit un signal
+                if objet.etat != 'en_transit':
+                    objet.etat = 'en_transit'
+                    objet.save()
+            
+            messeur.save()
+            
+            # ENVOYER MISE À JOUR SSE
+            update_data = {
+                'type': 'position_update',
+                'trajet_id': messeur.path.id,
+                'tag_rfid': tag_num_serie,
+                'objet_nom': f"{messeur.object_tracking.categorie}_{tag_num_serie}",
+                'etat_objet': objet.etat,
+                'etat_change': previous_lieu != lieu,
+                'distances': {
+                    'source': round(distance_source, 2),
+                    'destination': round(distance_destination, 2)
+                },
+                'nouvelle_position': {
+                    'lieu': lieu,
+                    'latitude': latitude,
+                    'longitude': longitude,
+                    'timestamp': new_date.isoformat(),
+                    'heure': new_heure.strftime('%H:%M:%S'),
+                    'duree_passage': str(messeur.duree_passage)
+                }
+            }
+            
+            # Broadcast à tous les clients SSE connectés
+            self.broadcast_sse_update(update_data)
+            
+            return Response({
+                'success': True,
+                'message': f'Position mise à jour pour {tag_num_serie}',
+                'trajet_id': messeur.path.id,
+                'etat_objet': objet.etat,
+                'duree_passage': str(messeur.duree_passage),
+                'distances': update_data['distances'],
+                'nouvelle_position': update_data['nouvelle_position'],
+                'debug_info': {
+                    'timestamp_recu': timestamp_str,
+                    'timestamp_local_final': new_datetime.isoformat(),
+                    'date_finale': new_date.isoformat(),
+                    'heure_finale': new_heure.strftime('%H:%M:%S')
+                }
+            })
+            
+        except TagRfid.DoesNotExist:
+            return Response({
+                'error': f'Tag RFID {tag_num_serie} non trouvé'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"ERREUR GÉNÉRALE: {str(e)}")
+            import traceback
+            print(f"Traceback complet: {traceback.format_exc()}")
+            return Response({
+                'error': f'Erreur: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def get_current_coordinates(self, messeur):
+        """
+        Obtenir les coordonnées GPS actuelles du MesseurTracking
+        """
+        # Essayer d'obtenir les coordonnées depuis les champs directs
+        if hasattr(messeur, 'latitude') and hasattr(messeur, 'longitude'):
+            if messeur.latitude and messeur.longitude:
+                return float(messeur.latitude), float(messeur.longitude)
+        
+        # Sinon, essayer d'obtenir depuis la dernière position dans l'historique
+        derniere_position = PositionHistorique.objects.filter(
+            messeur_tracking=messeur
+        ).order_by('-timestamp').first()
+        
+        if derniere_position and derniere_position.latitude and derniere_position.longitude:
+            return float(derniere_position.latitude), float(derniere_position.longitude)
+        
+        # Par défaut, retourner None si pas de coordonnées
+        return None, None
+    
+    def get_location_from_coordinates(self, latitude, longitude):
+        """
+        Obtenir le nom du lieu à partir des coordonnées GPS - VERSION AMÉLIORÉE
+        Évite les coordonnées GPS brutes en utilisant plusieurs méthodes
+        """
+        if not latitude or not longitude:
+            return 'Position GPS inconnue'
+        
+        try:
+            print(f"Tentative géolocalisation pour: {latitude}, {longitude}")
+            
+            geolocation_service = GeolocationService()
+            
+            # MÉTHODE 1: Utiliser process_location_by_coordinates
+            try:
+                result = geolocation_service.process_location_by_coordinates(
+                    float(latitude), float(longitude)
+                )
+                
+                if result and 'lieu' in result and result['lieu']:
+                    lieu_trouve = result['lieu']
+                    # Vérifier que ce n'est pas juste des coordonnées
+                    if not lieu_trouve.startswith('GPS(') and len(lieu_trouve) > 10:
+                        print(f"Lieu trouvé (méthode 1): {lieu_trouve}")
+                        return lieu_trouve
+                
+            except Exception as e1:
+                print(f"Erreur méthode 1: {str(e1)}")
+            
+            # MÉTHODE 2: Utiliser reverse_geocode directement
+            try:
+                reverse_result = geolocation_service.geocoder.reverse_geocode(
+                    float(latitude), float(longitude)
+                )
+                
+                if reverse_result:
+                    print(f"Résultat géocodage inverse: {reverse_result}")
+                    
+                    # Extraire le lieu à partir de formatted_address
+                    if 'formatted_address' in reverse_result and reverse_result['formatted_address']:
+                        formatted_address = reverse_result['formatted_address']
+                        # Prendre les deux premiers éléments de l'adresse
+                        address_parts = formatted_address.split(',')
+                        if len(address_parts) >= 2:
+                            lieu_extrait = f"{address_parts[0].strip()}, {address_parts[1].strip()}"
+                            print(f"Lieu extrait (méthode 2): {lieu_extrait}")
+                            return lieu_extrait
+                        elif len(address_parts) == 1 and len(address_parts[0].strip()) > 5:
+                            lieu_extrait = address_parts[0].strip()
+                            print(f"Lieu extrait simple (méthode 2): {lieu_extrait}")
+                            return lieu_extrait
+                    
+                    # Fallback vers address_components
+                    if 'address_components' in reverse_result:
+                        address = reverse_result['address_components']
+                        lieu_parts = []
+                        
+                        # Prioriser ville > commune > village > quartier
+                        for key in ['city', 'town', 'village', 'suburb', 'municipality']:
+                            if key in address and address[key]:
+                                lieu_parts.append(address[key])
+                                break
+                        
+                        if 'state' in address and address['state'] and len(lieu_parts) > 0:
+                            lieu_parts.append(address['state'])
+                        
+                        if lieu_parts:
+                            lieu_extrait = ', '.join(lieu_parts)
+                            print(f"Lieu extrait (components): {lieu_extrait}")
+                            return lieu_extrait
+                            
+            except Exception as e2:
+                print(f"Erreur méthode 2: {str(e2)}")
+            
+            # MÉTHODE 3: Base de données de lieux connus
+            try:
+                lieu_connu = self._get_lieu_from_coordinates_database(latitude, longitude)
+                if lieu_connu:
+                    print(f"Lieu trouvé dans la base de données: {lieu_connu}")
+                    return lieu_connu
+            except Exception as e3:
+                print(f"Erreur avec base de données de lieux: {str(e3)}")
+            
+            # MÉTHODE 4: Fallback intelligent basé sur les coordonnées géographiques
+            return self._get_lieu_approximatif(latitude, longitude)
+            
+        except Exception as e:
+            print(f"Erreur géolocalisation complète: {str(e)}")
+            return self._get_lieu_approximatif(latitude, longitude)
+
+    def _get_lieu_from_coordinates_database(self, latitude, longitude):
+        """
+        Base de données de lieux connus en Algérie pour améliorer la géolocalisation
+        """
+        lat_float = float(latitude)
+        lng_float = float(longitude)
+        
+        # Définir des zones géographiques connues avec une marge d'erreur
+        zones_connues = [
+            # Format: (lat_min, lat_max, lng_min, lng_max, nom_lieu)
+            (34.87, 34.89, -1.32, -1.31, "Tlemcen, Algérie"),
+            (36.77, 36.78, 3.05, 3.06, "Alger, Algérie"),
+            (35.69, 35.71, -0.66, -0.64, "Oran, Algérie"),
+            (36.35, 36.37, 6.60, 6.62, "Béjaïa, Algérie"),
+            (36.91, 36.93, 7.75, 7.77, "Annaba, Algérie"),
+            (35.37, 35.39, 1.31, 1.33, "Boumerdès, Algérie"),
+            (36.64, 36.66, 3.13, 3.15, "Tizi Ouzou, Algérie"),
+            (35.20, 35.22, -1.15, -1.13, "Sidi Bel Abbès, Algérie"),
+            (36.46, 36.48, 2.23, 2.25, "Blida, Algérie"),
+            (34.83, 34.85, 5.73, 5.75, "Ouargla, Algérie"),
+            (22.77, 22.79, 5.51, 5.53, "Tamanrasset, Algérie"),
+            (31.63, 31.65, 2.10, 2.12, "Ghardaïa, Algérie")
+        ]
+        
+        # Vérifier si les coordonnées correspondent à une zone connue
+        for lat_min, lat_max, lng_min, lng_max, nom_lieu in zones_connues:
+            if lat_min <= lat_float <= lat_max and lng_min <= lng_float <= lng_max:
+                return nom_lieu
+        
+        return None
+
+    def _get_lieu_approximatif(self, latitude, longitude):
+        """
+        Fallback intelligent pour déterminer le lieu approximatif
+        """
+        try:
+            lat_float = float(latitude)
+            lng_float = float(longitude)
+            
+            # Algérie
+            if 18.0 <= lat_float <= 37.0 and -8.0 <= lng_float <= 12.0:
+                # Subdivisions par région
+                if 34.8 <= lat_float <= 35.0 and -1.5 <= lng_float <= -1.0:
+                    return "Tlemcen, Algérie"
+                elif 36.7 <= lat_float <= 36.8 and 3.0 <= lng_float <= 3.1:
+                    return "Alger, Algérie"
+                elif 35.7 <= lat_float <= 35.8 and -0.7 <= lng_float <= -0.6:
+                    return "Oran, Algérie"
+                elif 36.3 <= lat_float <= 36.4 and 6.6 <= lng_float <= 6.7:
+                    return "Béjaïa, Algérie"
+                elif 34.0 <= lat_float <= 37.0 and -2.0 <= lng_float <= 8.0:
+                    return "Nord de l'Algérie"
+                elif 28.0 <= lat_float <= 34.0:
+                    return "Centre de l'Algérie"
+                else:
+                    return "Sud de l'Algérie"
+            
+            # Maroc
+            elif 27.0 <= lat_float <= 36.0 and -13.0 <= lng_float <= -1.0:
+                return "Maroc"
+            
+            # Tunisie
+            elif 30.0 <= lat_float <= 37.5 and 7.0 <= lng_float <= 12.0:
+                return "Tunisie"
+            
+            # Autres régions
+            elif 30.0 <= lat_float <= 48.0 and -10.0 <= lng_float <= 30.0:
+                return "Afrique du Nord"
+            else:
+                return f"Position ({lat_float:.3f}, {lng_float:.3f})"
+                
+        except Exception:
+            return f"GPS({latitude}, {longitude})"
+    
+    def broadcast_sse_update(self, data):
+        """
+        Fonction pour broadcaster les mises à jour SSE
+        """
+        # Stocker la mise à jour dans le cache pour les clients SSE
+        cache_key = f"sse_update_{data['trajet_id']}"
+        cache.set(cache_key, json.dumps(data), 300)  # 5 minutes
+        
+        # Stocker aussi pour tous les trajets
+        cache.set("sse_update_all", json.dumps(data), 300)
+        
+        print(f"Mise à jour SSE broadcastée pour trajet {data['trajet_id']}")
 
 '''
 
@@ -1840,6 +2342,376 @@ def _get_etat_objet_intelligent(messeur, trajet):
         return objet.etat
     return "Inconnu"
 '''
+def trajet_stream_all(request, trajet_id=None):
+    """
+    SSE Stream qui retourne tous les trajets en une seule fois sous forme de tableau
+    """
+    def stream_all_trajets_data():
+        while True:
+            try:
+                if trajet_id:
+                    trajets = PathTemplate.objects.filter(id=trajet_id)
+                else:
+                    trajets = PathTemplate.objects.all()
+
+                # Collecter toutes les données des trajets dans un tableau
+                all_trajets_data = []
+
+                for trajet in trajets:
+                    try:
+                        messeur = MesseurTracking.objects.filter(path=trajet).first()
+                        if messeur:
+                            # Vérifier les mises à jour en cache pour ce trajet spécifique
+                            cache_key = f"sse_update_{trajet.id}"
+                            cache_update = cache.get(cache_key)
+                            
+                            if cache_update:
+                                # Si une mise à jour en cache existe, l'utiliser
+                                try:
+                                    cached_data = json.loads(cache_update) if isinstance(cache_update, str) else cache_update
+                                    # Adapter les données du cache au format souhaité
+                                    trajet_data = {
+                                        'id': trajet.id,
+                                        'nom_trajet': cached_data.get('nom_trajet', str(trajet.nom) if trajet.nom else f"Trajet {trajet.id}"),
+                                        'objet_nom': cached_data.get('objet_nom', f"{messeur.object_tracking.categorie}_{messeur.capture_rfid.num_serie}"),
+                                        'capteur_num_serie': cached_data.get('capteur_num_serie', str(messeur.capture_rfid.num_serie)),
+                                        'etat_objet': cached_data.get('etat_objet', messeur.object_tracking.etat),
+                                        'localisation_actuelle': cached_data.get('localisation_actuelle', messeur.lieu),
+                                        'latitude_actuelle': cached_data.get('latitude_actuelle'),
+                                        'longitude_actuelle': cached_data.get('longitude_actuelle'),
+                                        'derniere_mise_a_jour': cached_data.get('derniere_mise_a_jour', messeur.date_prevu.isoformat() if messeur.date_prevu else datetime.now().date().isoformat()),
+                                        'heure_derniere_mise_a_jour': cached_data.get('heure_derniere_mise_a_jour', messeur.heure.strftime('%H:%M:%S') if messeur.heure else datetime.now().time().strftime('%H:%M:%S')),
+                                        'lien_historique': f"{request.build_absolute_uri('/')[:-1]}/api/captures/trajet-historique/{trajet.id}/"
+                                    }
+                                    cache.delete(cache_key)  # Supprimer après utilisation
+                                except:
+                                    # En cas d'erreur de parsing du cache, utiliser les données de la base
+                                    trajet_data = None
+                            else:
+                                trajet_data = None
+
+                            # Si pas de données du cache, récupérer depuis la base de données
+                            if trajet_data is None:
+                                # Obtenir les données réelles depuis la base
+                                latest_position = PositionHistorique.objects.filter(
+                                    messeur_tracking=messeur
+                                ).order_by('-timestamp').first()
+
+                                if latest_position:
+                                    current_lat = latest_position.latitude
+                                    current_lng = latest_position.longitude
+                                    lieu_actuel = latest_position.lieu
+                                else:
+                                    current_lat = trajet.latitude_src  
+                                    current_lng = trajet.longitude_src 
+                                    lieu_actuel = messeur.lieu 
+
+                                # Utiliser la même logique que TrajetListSerializer pour l'état
+                                etat_objet = _determiner_etat_objet_sse(messeur, trajet)
+
+                                trajet_data = {
+                                    'id': trajet.id,
+                                    'nom_trajet': str(trajet.nom) if trajet.nom else f"Trajet {trajet.id}",
+                                    'objet_nom': f"{messeur.object_tracking.categorie}_{messeur.capture_rfid.num_serie}",
+                                    'capteur_num_serie': str(messeur.capture_rfid.num_serie),
+                                    'etat_objet': etat_objet,  # État calculé dynamiquement
+                                    'localisation_actuelle': lieu_actuel,
+                                    'latitude_actuelle': round(float(current_lat), 6),
+                                    'longitude_actuelle': round(float(current_lng), 6),
+                                    'derniere_mise_a_jour': messeur.date_prevu.isoformat() if messeur.date_prevu else datetime.now().date().isoformat(),
+                                    'heure_derniere_mise_a_jour': messeur.heure.strftime('%H:%M:%S') if messeur.heure else datetime.now().time().strftime('%H:%M:%S'),
+                                    'lien_historique': f"{request.build_absolute_uri('/')[:-1]}/api/captures/trajet-historique/{trajet.id}/"
+                                }
+
+                            all_trajets_data.append(trajet_data)
+
+                    except Exception as e:
+                        # En cas d'erreur pour un trajet, ajouter une entrée d'erreur
+                        error_trajet = {
+                            'id': trajet.id,
+                            'nom_trajet': f"Erreur - Trajet {trajet.id}",
+                            'objet_nom': "Erreur",
+                            'capteur_num_serie': "N/A",
+                            'etat_objet': "erreur",
+                            'localisation_actuelle': f"Erreur: {str(e)}",
+                            'latitude_actuelle': 0.0,
+                            'longitude_actuelle': 0.0,
+                            'derniere_mise_a_jour': datetime.now().date().isoformat(),
+                            'heure_derniere_mise_a_jour': datetime.now().time().strftime('%H:%M:%S'),
+                            'lien_historique': f"{request.build_absolute_uri('/')[:-1]}/api/captures/trajet-historique/{trajet.id}/"
+                        }
+                        all_trajets_data.append(error_trajet)
+
+                # Envoyer toutes les données en une seule fois
+                if all_trajets_data:
+                    response_data = {
+                        'type': 'trajets_batch_update',
+                        'timestamp': datetime.now().isoformat(),
+                        'total_trajets': len(all_trajets_data),
+                        'trajets': all_trajets_data
+                    }
+                    yield f"data: {json.dumps(response_data)}\n\n"
+                else:
+                    # Si aucun trajet trouvé
+                    empty_response = {
+                        'type': 'trajets_batch_update',
+                        'timestamp': datetime.now().isoformat(),
+                        'total_trajets': 0,
+                        'trajets': []
+                    }
+                    yield f"data: {json.dumps(empty_response)}\n\n"
+
+                time.sleep(2)  # Mise à jour toutes les 2 secondes
+
+            except Exception as e:
+                error_response = {
+                    'type': 'error',
+                    'message': str(e),
+                    'timestamp': datetime.now().isoformat(),
+                    'trajets': []
+                }
+                yield f"data: {json.dumps(error_response)}\n\n"
+                time.sleep(5)
+
+    response = StreamingHttpResponse(stream_all_trajets_data(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    
+    return response
+def trajet_stream_all2(request, trajet_id=None):
+    """
+    SSE Stream qui retourne tous les trajets en une seule fois sous forme de tableau
+    """
+    def stream_all_trajets_data():
+        while True:
+            try:
+                if trajet_id:
+                    trajets = PathTemplate.objects.filter(id=trajet_id)
+                else:
+                    trajets = PathTemplate.objects.all()
+
+                # Collecter toutes les données des trajets dans un tableau
+                all_trajets_data = []
+
+                for trajet in trajets:
+                    try:
+                        messeur = MesseurTracking.objects.filter(path=trajet).first()
+                        if messeur:
+                            # Vérifier les mises à jour en cache pour ce trajet spécifique
+                            cache_key = f"sse_update_{trajet.id}"
+                            cache_update = cache.get(cache_key)
+                            
+                            if cache_update:
+                                # Si une mise à jour en cache existe, l'utiliser
+                                try:
+                                    cached_data = json.loads(cache_update) if isinstance(cache_update, str) else cache_update
+                                    
+                                    # CORRECTION: Récupérer les coordonnées depuis le cache ou la nouvelle position
+                                    if 'nouvelle_position' in cached_data:
+                                        current_lat = cached_data['nouvelle_position'].get('latitude')
+                                        current_lng = cached_data['nouvelle_position'].get('longitude')
+                                        lieu_actuel = cached_data['nouvelle_position'].get('lieu')
+                                    else:
+                                        current_lat = cached_data.get('latitude_actuelle')
+                                        current_lng = cached_data.get('longitude_actuelle')
+                                        lieu_actuel = cached_data.get('localisation_actuelle')
+                                    
+                                    trajet_data = {
+                                        'id': trajet.id,
+                                        'nom_trajet': str(trajet.nom) if trajet.nom else f"Trajet {trajet.id}",
+                                        'objet_nom': f"{messeur.object_tracking.categorie}_{messeur.capture_rfid.num_serie}",
+                                        'capteur_num_serie': str(messeur.capture_rfid.num_serie),
+                                        'etat_objet': cached_data.get('etat_objet', messeur.object_tracking.etat),
+                                        'localisation_actuelle': lieu_actuel or messeur.lieu,
+                                        'latitude_actuelle': float(current_lat) if current_lat is not None else None,
+                                        'longitude_actuelle': float(current_lng) if current_lng is not None else None,
+                                        'derniere_mise_a_jour': messeur.date_prevu.isoformat() if messeur.date_prevu else datetime.now().date().isoformat(),
+                                        'heure_derniere_mise_a_jour': messeur.heure.strftime('%H:%M:%S') if messeur.heure else datetime.now().time().strftime('%H:%M:%S'),
+                                        'lien_historique': f"{request.build_absolute_uri('/')[:-1]}/api/captures/trajet-historique/{trajet.id}/"
+                                    }
+                                    cache.delete(cache_key)  # Supprimer après utilisation
+                                except Exception as e:
+                                    print(f"Erreur parsing cache: {e}")
+                                    trajet_data = None
+                            else:
+                                trajet_data = None
+
+                            # CORRECTION: Si pas de données du cache, récupérer depuis la base de données
+                            if trajet_data is None:
+                                # Obtenir les coordonnées depuis PositionHistorique
+                                latest_position = PositionHistorique.objects.filter(
+                                    messeur_tracking=messeur
+                                ).order_by('-timestamp').first()
+
+                                # CORRECTION: Récupérer AUSSI depuis MesseurTracking si disponible
+                                current_lat = None
+                                current_lng = None
+                                lieu_actuel = messeur.lieu
+
+                                # Priorité 1: Coordonnées depuis MesseurTracking
+                                if hasattr(messeur, 'latitude') and hasattr(messeur, 'longitude'):
+                                    if messeur.latitude is not None and messeur.longitude is not None:
+                                        current_lat = float(messeur.latitude)
+                                        current_lng = float(messeur.longitude)
+                                        print(f"Coordonnées depuis MesseurTracking: {current_lat}, {current_lng}")
+
+                                # Priorité 2: Coordonnées depuis PositionHistorique
+                                if (current_lat is None or current_lng is None) and latest_position:
+                                    if latest_position.latitude is not None and latest_position.longitude is not None:
+                                        current_lat = float(latest_position.latitude)
+                                        current_lng = float(latest_position.longitude)
+                                        lieu_actuel = latest_position.lieu
+                                        print(f"Coordonnées depuis PositionHistorique: {current_lat}, {current_lng}")
+
+                                # Priorité 3: Coordonnées par défaut du trajet
+                                if current_lat is None or current_lng is None:
+                                    if trajet.latitude_src is not None and trajet.longitude_src is not None:
+                                        current_lat = float(trajet.latitude_src)
+                                        current_lng = float(trajet.longitude_src)
+                                        lieu_actuel = trajet.source
+                                        print(f"Coordonnées par défaut: {current_lat}, {current_lng}")
+
+                                # Utiliser la même logique que TrajetListSerializer pour l'état
+                                etat_objet = _determiner_etat_objet_sse(messeur, trajet)
+
+                                trajet_data = {
+                                    'id': trajet.id,
+                                    'nom_trajet': str(trajet.nom) if trajet.nom else f"Trajet {trajet.id}",
+                                    'objet_nom': f"{messeur.object_tracking.categorie}_{messeur.capture_rfid.num_serie}",
+                                    'capteur_num_serie': str(messeur.capture_rfid.num_serie),
+                                    'etat_objet': etat_objet,
+                                    'localisation_actuelle': lieu_actuel,
+                                    'latitude_actuelle': current_lat,  # Ne pas arrondir si None
+                                    'longitude_actuelle': current_lng,  # Ne pas arrondir si None
+                                    'derniere_mise_a_jour': messeur.date_prevu.isoformat() if messeur.date_prevu else datetime.now().date().isoformat(),
+                                    'heure_derniere_mise_a_jour': messeur.heure.strftime('%H:%M:%S') if messeur.heure else datetime.now().time().strftime('%H:%M:%S'),
+                                    'lien_historique': f"{request.build_absolute_uri('/')[:-1]}/api/captures/trajet-historique/{trajet.id}/"
+                                }
+
+                                # Debug pour voir les valeurs finales
+                                print(f"Trajet {trajet.id} - Coordonnées finales: lat={current_lat}, lng={current_lng}, lieu={lieu_actuel}")
+
+                            all_trajets_data.append(trajet_data)
+
+                    except Exception as e:
+                        print(f"Erreur pour trajet {trajet.id}: {e}")
+                        # En cas d'erreur pour un trajet, ajouter une entrée d'erreur
+                        error_trajet = {
+                            'id': trajet.id,
+                            'nom_trajet': f"Erreur - Trajet {trajet.id}",
+                            'objet_nom': "Erreur",
+                            'capteur_num_serie': "N/A",
+                            'etat_objet': "erreur",
+                            'localisation_actuelle': f"Erreur: {str(e)}",
+                            'latitude_actuelle': None,
+                            'longitude_actuelle': None,
+                            'derniere_mise_a_jour': datetime.now().date().isoformat(),
+                            'heure_derniere_mise_a_jour': datetime.now().time().strftime('%H:%M:%S'),
+                            'lien_historique': f"{request.build_absolute_uri('/')[:-1]}/api/captures/trajet-historique/{trajet.id}/"
+                        }
+                        all_trajets_data.append(error_trajet)
+
+                # Envoyer toutes les données en une seule fois
+                if all_trajets_data:
+                    response_data = {
+                        'type': 'trajets_batch_update',
+                        'timestamp': datetime.now().isoformat(),
+                        'total_trajets': len(all_trajets_data),
+                        'trajets': all_trajets_data
+                    }
+                    yield f"data: {json.dumps(response_data)}\n\n"
+                else:
+                    # Si aucun trajet trouvé
+                    empty_response = {
+                        'type': 'trajets_batch_update',
+                        'timestamp': datetime.now().isoformat(),
+                        'total_trajets': 0,
+                        'trajets': []
+                    }
+                    yield f"data: {json.dumps(empty_response)}\n\n"
+
+                time.sleep(2)  # Mise à jour toutes les 2 secondes
+
+            except Exception as e:
+                print(f"Erreur générale stream: {e}")
+                error_response = {
+                    'type': 'error',
+                    'message': str(e),
+                    'timestamp': datetime.now().isoformat(),
+                    'trajets': []
+                }
+                yield f"data: {json.dumps(error_response)}\n\n"
+                time.sleep(5)
+
+    response = StreamingHttpResponse(stream_all_trajets_data(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    
+    return response
+
+def _determiner_etat_objet_sse(messeur, trajet):
+    """
+    Fonction helper pour déterminer l'état de l'objet dans SSE
+    Utilise la même logique que TrajetHistoriqueView._determiner_etat_objet
+    """
+    
+    
+    # ============================================================================
+    # PRIORITÉ 1: Si l'objet est à la destination finale -> TOUJOURS "recu"
+    # ============================================================================
+    if messeur.lieu and trajet.destination:
+        lieu_destination = trajet.destination.lower()
+        lieu_actuel = messeur.lieu.lower()
+        
+        # Correspondance exacte
+        if lieu_destination == lieu_actuel:
+            return "recu"
+        
+        # Correspondance partielle
+        destination_mots = lieu_destination.split()
+        for mot in destination_mots:
+            if len(mot) > 3 and mot in lieu_actuel:
+                return "recu"
+        
+        # Correspondance inverse
+        actuel_mots = lieu_actuel.split()
+        for mot in actuel_mots:
+            if len(mot) > 3 and mot in lieu_destination:
+                return "recu"
+    
+    # Vérifier dans l'historique
+    if trajet.destination:
+        destination_atteinte = PositionHistorique.objects.filter(
+            messeur_tracking=messeur,
+            lieu__icontains=trajet.destination.split(',')[0] if ',' in trajet.destination else trajet.destination.split()[0]
+        ).exists()
+        
+        if destination_atteinte:
+            return "recu"
+    
+    # ============================================================================
+    # PRIORITÉ 2: Si l'objet est au point de départ
+    # ============================================================================
+    if messeur.lieu == trajet.source:
+        positions_apres_depart = PositionHistorique.objects.filter(
+            messeur_tracking=messeur
+        ).exclude(lieu=trajet.source).exists()
+        
+        if positions_apres_depart:
+            return "en_transit"
+        else:
+            return "stocke"
+    
+    # ============================================================================
+    # Vérifier si l'objet est perdu (pas de mise à jour récente)
+    # ============================================================================
+    if messeur.date_prevu and messeur.heure:
+        last_update = datetime.combine(messeur.date_prevu, messeur.heure)
+        time_diff = (datetime.now() - last_update).total_seconds()
+        
+        if time_diff > 172800:  # Plus de 48 heures sans signal
+            return 'perdu'
+    
+    # Par défaut
+    return "en_transit"
 
 class GeocodeAddressView(APIView):
     """

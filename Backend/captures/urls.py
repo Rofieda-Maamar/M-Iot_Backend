@@ -5,7 +5,7 @@ from .views import (CreateTagRfidView, UploadTagRfidUserView,
                    ObjectTrackingNamesView, GeocodeAddressView,
                    ReverseGeocodeView, SearchPlacesView, TrajetListView,
                    TrajetHistoriqueView, UpdatePositionRealTimeView,
-                   trajet_sse_stream, CheckObjetStatusView)
+                   trajet_sse_stream, trajet_stream_all ,CheckObjetStatusView)
 
 urlpatterns = [
     path('add-tag-rfid/', CreateTagRfidView.as_view(), name='add-tag-rfid'),
@@ -28,7 +28,7 @@ urlpatterns = [
     # URLs pour SSE (Server-Sent Events) - Temps réel
     path('trajet-stream/', trajet_sse_stream, name='trajet-stream'),
     path('trajet-stream/<int:trajet_id>/', trajet_sse_stream, name='trajet-stream-specific'),
-   # path('trajet-stream-all/', trajet_stream_all, name='trajet-stream-all'),
+    path('trajet-stream-all/', trajet_stream_all, name='trajet-stream-all'),
     
     # URL pour vérification du statut des objets
     path('check-objet-status/', CheckObjetStatusView.as_view(), name='check-objet-status'),
