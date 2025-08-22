@@ -154,7 +154,7 @@ class MachineUploadView(APIView):
     """
 
     REQUIRED_COLS = [
-        'identificateur', 'status', 'machine_date',
+        'identificateur', 'status', 'machine_date_install',
         'capt_num_serie', 'capt_date_install',
         'param_nom', 'param_unite', 'param_valeur_max'
     ]
@@ -199,7 +199,7 @@ class MachineUploadView(APIView):
             for payload in payloads:
                 try:
                     with transaction.atomic():
-                        serializer = MachineAddSerializer(data=payload, context={"schema_name": schema_name})
+                        serializer = MachineAddSerializer(data=payload, context={"schema_name": client.schema_name})
                         if serializer.is_valid():
                             obj = serializer.save()
                             created.append({"machine_id": obj.id, "identificateur": obj.identificateur})
@@ -231,7 +231,7 @@ class MachineUploadView(APIView):
                 "site": int(site_id),
                 "identificateur": machine_id,
                 "status": str(r.get("status", "active")).strip(),
-                "date_installation": self._safe_datetime_iso(r.get("machine_date")),
+                "date_installation": self._safe_datetime_iso(r.get("machine_date_install")),
                 "captures": []
             })
 
@@ -243,12 +243,12 @@ class MachineUploadView(APIView):
             if not capture:
                 capture = {"num_serie": serial,
                            "date_install": self._safe_date_iso(r.get("capt_date_install")),
-                           "parametre": []}
+                           "parametres": []}
                 machine["captures"].append(capture)
 
             param_nom = str(r.get("param_nom", "")).strip()
-            if param_nom and not any(p["nom"] == param_nom for p in capture["parametre"]):
-                capture["parametre"].append({
+            if param_nom and not any(p["nom"] == param_nom for p in capture["parametres"]):
+                capture["parametres"].append({
                     "nom": param_nom,
                     "unite": r.get("param_unite", "") or "",
                     "valeur_max": self._safe_float(r.get("param_valeur_max"))
