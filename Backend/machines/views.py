@@ -243,12 +243,12 @@ class MachineUploadView(APIView):
             if not capture:
                 capture = {"num_serie": serial,
                            "date_install": self._safe_date_iso(r.get("capt_date_install")),
-                           "parametres": []}
+                           "parametre": []}
                 machine["captures"].append(capture)
 
             param_nom = str(r.get("param_nom", "")).strip()
-            if param_nom and not any(p["nom"] == param_nom for p in capture["parametres"]):
-                capture["parametres"].append({
+            if param_nom and not any(p["nom"] == param_nom for p in capture["parametre"]):
+                capture["parametre"].append({
                     "nom": param_nom,
                     "unite": r.get("param_unite", "") or "",
                     "valeur_max": self._safe_float(r.get("param_valeur_max"))
