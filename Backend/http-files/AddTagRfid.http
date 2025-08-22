@@ -5,7 +5,7 @@ Content-Type:application/json
     
     {
         "site" : 1,
-        "num_serie": "num-unique",
+        "num_serie": "num-unique1,'cateorien,eeee",
         "type": "actif",
         "date_install": "2025-08-14",
         "categorie": "outil"
@@ -21,3 +21,5 @@ Content-Type:application/json
 
 
 GET http://127.0.0.1:8000/api/captures/list-tag-rfid/?client_id=1&site_id=1 HTTP/1.1
+
+curl -X POST "http://127.0.0.1:8000/api/captures/upload-tag-rfid/?client_id=2" -F "file=@tagrfid1.xlsx"  -F "site=1"

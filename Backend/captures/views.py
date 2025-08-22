@@ -55,7 +55,6 @@ class UploadTagRfidUserView(APIView):
     Upload an Excel file with multiple tag rfids.
     File should have columns: num_serie, date_install, type (passif , actif)
     """
-
     def post(self, request, format=None):
         client_id = request.query_params.get("client_id")
         if not client_id : 
@@ -81,7 +80,7 @@ class UploadTagRfidUserView(APIView):
 
         created_tags = []
         errors = []
-        required_columns = ['date_install', 'type', 'num_serie' ]
+        required_columns = ['date_install', 'type', 'num_serie' ,'categorie' ]
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
@@ -128,7 +127,7 @@ def sse_realtime_parametre(request):
 
     def event_stream():
         while True:
-            # Get latest SiteParametre for the given site
+            # Get latest SiteParametre for the given site  
             latest_values = SiteParametre.objects.filter(
                 typeParametre__site_id=site_id
             ).values('typeParametre').annotate(
