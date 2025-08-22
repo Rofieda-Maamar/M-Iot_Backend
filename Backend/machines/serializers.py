@@ -15,13 +15,13 @@ class ParametreAddSerializer(serializers.ModelSerializer) :
 
 
 class CaptureMachineAddSerializer(serializers.ModelSerializer) : 
-    parametre = ParametreAddSerializer(many =True)
+    parametres  = ParametreAddSerializer(many =True , source = 'parametre')
     class Meta : 
         model = CaptureMachine 
-        fields = ['num_serie' , 'date_install' , 'parametre']
+        fields = ['num_serie' , 'date_install' , 'parametres']
         
     def create(self, validated_data):
-        parametres_data = validated_data.pop('parametre',[])
+        parametres_data = validated_data.pop('parametres',[])
         capture = CaptureMachine.objects.create(**validated_data)
         for param_data in parametres_data : 
             Parametre.objects.create(captureMachine = capture, **param_data)

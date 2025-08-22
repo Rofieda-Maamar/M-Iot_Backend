@@ -4,6 +4,7 @@ from .views import  *
 urlpatterns = [
 
     path('add-machine/', CreatMachineView.as_view(), name='add-machine'),
+    path('upload-machine/', MachineUploadView.as_view(), name='upload-machine'),
     path('machines/', DisplayMachineView.as_view(), name='machines-list'),
     path('all-capture-machines/', AllCaptureMachinesView.as_view(), name='all_capture_machines'),
     path('search-capture-machine/', CaptureMachineSearchView.as_view(), name='search-capture-machine'),

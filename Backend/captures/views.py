@@ -157,7 +157,6 @@ def sse_realtime_parametre(request):
 
 
 
-# complete it mb3da
 class ListTagRfidView(generics.ListAPIView) : 
     queryset = TagRfid.objects.all()
     serializer_class = TagRfidListSerializer
