@@ -137,9 +137,21 @@ class DisplayMachineView(generics.ListAPIView) :
 
 
 
-class DisplayMachineDetailView(generics.RetrieveAPIView) : 
+class DisplayMachineDetailView(generics.ListAPIView) : 
     queryset = Machine.objects.all()
     serializer_class = DisplayMachinesDetailSerializer
+
+    def get_queryset(self):
+        site_id = self.request.query_params.get("site_id")
+        if not site_id : 
+            raise ValidationError("site_id required")
+        try : 
+            Site.objects.get(id=site_id)
+        except Site.DoesNotExist : 
+            raise ValidationError("site with this id doesn't exist")
+        
+        queryset = Machine.objects.filter(site= site_id)
+        return queryset
 
 
 

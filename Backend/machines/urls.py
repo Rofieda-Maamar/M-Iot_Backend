@@ -8,5 +8,5 @@ urlpatterns = [
     path('machines/', DisplayMachineView.as_view(), name='machines-list'),
     path('all-capture-machines/', AllCaptureMachinesView.as_view(), name='all_capture_machines'),
     path('search-capture-machine/', CaptureMachineSearchView.as_view(), name='search-capture-machine'),
-    path('machine-detail/<int:pk>/', DisplayMachineDetailView.as_view(), name='search-capture-machine'),
+    path('machine-detail/', DisplayMachineDetailView.as_view(), name='search-capture-machine'),
 ]
