@@ -87,6 +87,7 @@ class TypeParametre(models.Model):
     unite      = models.CharField(max_length=20)
     valeur_max = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
+
 class SiteParametre(models.Model):
     typeParametre = models.ForeignKey(TypeParametre , on_delete=models.CASCADE , related_name='valeurs')
     valeur     = models.FloatField()

@@ -224,3 +224,16 @@ CSRF_TRUSTED_ORIGINS = [
 
 samesite="None"
 secure=True
+
+# MQTT Configuration : 
+
+MQTT = {
+    "BROKER_HOST": "broker.emqx.io",     # free public broker (for testing)
+    "BROKER_PORT": 1883,
+    "USERNAME": None,                    # optional -> set if you use a private broker
+    "PASSWORD": None,
+    "BASE_TOPIC": "m-iot", 
+    "TOPIC": "m-iot/+/+/+",          # wildcard to match {tenant_id}/{site_id}/{parameter}
+    "QOS": 0,
+}
+#can switch to a local broker later by changing BROKER_HOST to localhost
