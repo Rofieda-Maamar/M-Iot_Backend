@@ -62,7 +62,7 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
 
         # Create domain for the tenant (client)
         Domain.objects.create(
-            domain=f"{schema_name}.localhost",
+            domain=f"{schema_name}.{settings.TENANT_BASE_DOMAIN}",
             tenant=client,
             is_primary=True
         )
@@ -132,6 +132,7 @@ class AddClientWithUserSerializer(serializers.ModelSerializer):
 
         return client
 
+
 class ClientListSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source = 'user.email' , read_only = True)
     client = serializers.CharField(source='nom_entreprise')
@@ -150,7 +151,7 @@ class ClientDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Client 
-        fields = ['id' ,'industrie' ,'latitude' ,'longitude', 'status' , 'telephone', 'email' ,'created_at' , 'sites' ]
+        fields = ['nom_entreprise' ,'industrie' , 'adresse', 'status' , 'telephone', 'email' ,'created_at' , 'sites' ]
 
     def get_sites(self , obj):
         schema_name = self.context.get('schema_name')

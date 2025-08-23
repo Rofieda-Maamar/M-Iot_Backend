@@ -1,5 +1,8 @@
 from rest_framework import serializers
 from machines.models import CaptureMachine
+
+from rest_framework import serializers
+from machines.models import CaptureMachine
 from rest_framework import serializers 
 from .models import CaptureMachine  , Machine , Parametre
 from django_tenants.utils import schema_context
@@ -13,17 +16,19 @@ class ParametreAddSerializer(serializers.ModelSerializer) :
 
 
 class CaptureMachineAddSerializer(serializers.ModelSerializer) : 
-    parametre = ParametreAddSerializer(many =True)
+    parametre = ParametreAddSerializer(many=True, write_only=True)
+    parametres = ParametreAddSerializer(many=True, source="parametre", read_only=True)
     class Meta : 
         model = CaptureMachine 
-        fields = ['num_serie' , 'date_install' , 'parametre']
+        fields = ['num_serie' , 'date_install' , 'parametre', 'parametres']
         
     def create(self, validated_data):
-        parametres_data = validated_data.pop('parametre',[])
+        parametres_data = validated_data.pop('parametre', [])
         capture = CaptureMachine.objects.create(**validated_data)
         for param_data in parametres_data : 
             Parametre.objects.create(captureMachine = capture, **param_data)
         return capture
+
 
 
 
@@ -69,4 +74,11 @@ class DisplayMachinesSerializer(serializers.ModelSerializer) :
 class CaptureMachineSerializer(serializers.ModelSerializer):
     class Meta:
         model = CaptureMachine
-        fields = '__all__'
+        fields = '__all__' 
+
+
+
+class DisplayMachinesDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Machine
+        exclude = ["site"] 

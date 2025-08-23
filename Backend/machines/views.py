@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework import generics , status
-from .serializers import MachineAddSerializer , DisplayMachinesSerializer ,CaptureMachineSerializer
+from .serializers import *
 from rest_framework.response import Response
 import csv
 import io
@@ -16,6 +16,18 @@ from tenants.models import Client  # ton modèle tenant
 from django_tenants.utils import schema_context
 from machines.models import CaptureMachine
 from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.exceptions import ValidationError, NotFound, ParseError
+from django.db import transaction
+from django_tenants.utils import schema_context
+import pandas as pd
+from datetime import datetime
+from dateutil import parser as date_parser
+from django.shortcuts import get_object_or_404
+from sites.models import * 
+
 
 class AllCaptureMachinesView(APIView):
     def get(self, request):
@@ -28,7 +40,7 @@ class AllCaptureMachinesView(APIView):
                 serializer = CaptureMachineSerializer(captures, many=True)
                 # On ajoute une info pour savoir de quel client ça vient
                 for item in serializer.data:
-                     item['client'] = client.nom_entreprise # ou client.name selon ton modèle
+                    item['client'] = client.nom_entreprise 
                 all_captures.extend(serializer.data)
 
         return Response(all_captures)
@@ -90,57 +102,6 @@ class CreatMachineView(generics.CreateAPIView) :
             return super().create(request, *args, **kwargs)
 
     
-class MachineListUploadView(generics.GenericAPIView):
-    serializer_class = MachineAddSerializer
-
-    def post(self, request, *args, **kwargs):
-        file = request.FILES.get('file')
-        if not file:
-            return Response({"error": "No CSV file provided"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            decoded_file = file.read().decode('utf-8')
-            csv_reader = csv.DictReader(io.StringIO(decoded_file))
-        except Exception as e:
-            return Response({"error": f"Invalid File Format: {e}"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        results = []
-        errors = []
-
-        for idx, row in enumerate(csv_reader, start=1):
-            machine_data = {
-                "site": row["site_id"],
-                "identificateur": row["identificateur"],
-                "status": row["status"],
-                "date_installation": row.get("date_installation"),
-                "date_dernier_serv": row.get("date_dernier_serv"),
-                "captures": [
-                    {
-                        "num_serie": row["capture1_num_serie"],
-                        "date_install": row["capture1_date_install"],
-                        "parametres": [
-                            {"nom": row["param1_nom"], "unite": row["param1_unite"], "valeur_max": row["param1_valeur_max"]},
-                            {"nom": row["param2_nom"], "unite": row["param2_unite"], "valeur_max": row["param2_valeur_max"]},
-                        ]
-                    },
-                    {
-                        "num_serie": row["capture2_num_serie"],
-                        "date_install": row["capture2_date_install"],
-                        "parametres": [
-                            {"nom": row["param3_nom"], "unite": row["param3_unite"], "valeur_max": row["param3_valeur_max"]},
-                        ]
-                    }
-                ]
-            }
-
-            serializer = self.get_serializer(data=machine_data)
-            if serializer.is_valid():
-                serializer.save()
-                results.append(serializer.data)
-            else:
-                errors.append({"row": idx, "errors": serializer.errors})
-
-        return Response({"created": results, "errors": errors}, status=status.HTTP_201_CREATED)
 
 
 class DisplayMachineView(generics.ListAPIView) : 
@@ -164,11 +125,168 @@ class DisplayMachineView(generics.ListAPIView) :
 
     def list(self, request, *args, **kwargs):
         schema_name = self.get_serializer_context().get('schema_name')
-        machine_id = request.query_params.get("machine_id")
+        site_id = request.query_params.get("site_id")
+
+        if not site_id : 
+            raise ValidationError({"site_id":"required to list machines of this site"})
 
         with schema_context(schema_name):
-            queryset = Machine.objects.filter(id=machine_id)
-            if machine_id : 
-                queryset = queryset.filter(id=machine_id)
+            queryset = Machine.objects.filter(site_id=site_id)
             serializer = self.get_serializer(queryset , many = True)
             return Response(serializer.data)
+
+
+
+class DisplayMachineDetailView(generics.ListAPIView) : 
+    queryset = Machine.objects.all()
+    serializer_class = DisplayMachinesDetailSerializer
+
+    def get_queryset(self):
+        site_id = self.request.query_params.get("site_id")
+        if not site_id : 
+            raise ValidationError("site_id required")
+        try : 
+            Site.objects.get(id=site_id)
+        except Site.DoesNotExist : 
+            raise ValidationError("site with this id doesn't exist")
+        
+        queryset = Machine.objects.filter(site= site_id)
+        return queryset
+
+
+
+
+class MachineUploadView(APIView):
+    """
+    Upload CSV/Excel to create Machines with captures/parameters.
+    Expected columns:
+      identificateur, status, machine_date,
+      capt_num_serie, capt_date_install,
+      param_nom, param_unite, param_valeur_max
+    """
+
+    REQUIRED_COLS = [
+        'identificateur', 'status', 'machine_date_install',
+        'capt_num_serie', 'capt_date_install',
+        'param_nom', 'param_unite', 'param_valeur_max'
+    ]
+
+    def post(self, request, format=None):
+        client_id = request.query_params.get("client_id")
+        if not client_id:
+            raise ValidationError("client_id is required")
+
+        try:
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist:
+            raise NotFound("client with this id not found")
+        
+        site_id = request.data.get("site_id")
+        if not site_id:
+            raise ValidationError("site_id is required")
+
+        file = request.FILES.get('file')
+        if not file:
+            raise ParseError("No file uploaded in 'file' field")
+
+        try:
+            df = pd.read_csv(file) if file.name.endswith(".csv") else pd.read_excel(file)
+        except Exception as e:
+            return Response({"error": f"Cannot read file: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        missing = [c for c in self.REQUIRED_COLS if c not in df.columns]
+        if missing:
+            return Response({"error": f"Missing columns: {', '.join(missing)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        payloads = self._group_rows_into_machines(df.to_dict(orient='records'), site_id)
+
+        created, errors = [], []
+
+        with schema_context(client.schema_name):
+            try : 
+                site = Site.objects.get(id=site_id)
+
+            except Site.DoesNotExist : 
+                raise ValidationError("site with this id does not exist")
+            for payload in payloads:
+                try:
+                    with transaction.atomic():
+                        serializer = MachineAddSerializer(data=payload, context={"schema_name": client.schema_name})
+                        if serializer.is_valid():
+                            obj = serializer.save()
+                            created.append({"machine_id": obj.id, "identificateur": obj.identificateur})
+                        else:
+                            errors.append({"machine": payload["identificateur"], "errors": serializer.errors})
+                except Exception as e:
+                    errors.append({"machine": payload["identificateur"], "errors": str(e)})
+
+        resp = {
+            "created_machines": len(created),
+            "failed": len(errors),
+            "machines": created,
+        }
+        if errors:
+            resp["errors"] = errors
+            return Response(resp, status=status.HTTP_207_MULTI_STATUS)
+        return Response(resp, status=status.HTTP_201_CREATED)
+
+    # -------- helpers --------
+    def _group_rows_into_machines(self, rows, site_id):
+        machines = {}
+
+        for r in rows:
+            machine_id = str(r.get("identificateur", "")).strip()
+            if not machine_id:
+                continue
+
+            machine = machines.setdefault(machine_id, {
+                "site": int(site_id),
+                "identificateur": machine_id,
+                "status": str(r.get("status", "active")).strip(),
+                "date_installation": self._safe_datetime_iso(r.get("machine_date_install")),
+                "captures": []
+            })
+
+            serial = str(r.get("capt_num_serie", "")).strip()
+            if not serial:
+                continue
+
+            capture = next((c for c in machine["captures"] if c["num_serie"] == serial), None)
+            if not capture:
+                capture = {"num_serie": serial,
+                           "date_install": self._safe_date_iso(r.get("capt_date_install")),
+                           "parametre": []}
+                machine["captures"].append(capture)
+
+            param_nom = str(r.get("param_nom", "")).strip()
+            if param_nom and not any(p["nom"] == param_nom for p in capture["parametre"]):
+                capture["parametre"].append({
+                    "nom": param_nom,
+                    "unite": r.get("param_unite", "") or "",
+                    "valeur_max": self._safe_float(r.get("param_valeur_max"))
+                })
+
+        return list(machines.values())
+
+    # ---- parsing helpers ----
+    def _safe_float(self, v):
+        try:
+            return None if v is None or (isinstance(v, float) and pd.isna(v)) else float(v)
+        except Exception:
+            return None
+
+    def _safe_date_iso(self, v):
+        if not v: return None
+        try:
+            dt = v if isinstance(v, datetime) else pd.to_datetime(v, errors="coerce")
+            return None if pd.isna(dt) else dt.date().isoformat()
+        except Exception:
+            return None
+
+    def _safe_datetime_iso(self, v):
+        if not v: return datetime.now().isoformat()
+        try:
+            dt = v if isinstance(v, datetime) else pd.to_datetime(v, errors="coerce")
+            return datetime.now().isoformat() if pd.isna(dt) else dt.isoformat()
+        except Exception:
+            return datetime.now().isoformat()
