@@ -15,7 +15,9 @@ from collections import defaultdict
 import pandas as pd
 from rest_framework import status
 from django.db import transaction
-
+from django.db.models.functions import ExtractMonth
+from captures.models import *
+from django.db.models import Avg
 from rest_framework.exceptions import ParseError
 
 
@@ -322,3 +324,71 @@ class SiteUploadView(APIView):
         except Exception:
             # fallback to string
             return str(v)
+        
+
+
+
+from django.http import StreamingHttpResponse
+import json, time
+
+
+def Temperature_stats_stream(request):
+    
+    site_id = request.GET.get("site_id")
+    if not site_id:
+        return StreamingHttpResponse({"error": "site_id is required"}, status=400)
+        # 1. Get the TypeParametre for temperature in this site
+
+    def event_stream() :
+        while True : 
+            try:
+                temp_param = TypeParametre.objects.get(site_id=site_id, nom="temperateur")
+            except TypeParametre.DoesNotExist:
+                return Response({"error": "Temperature parameter not found for this site"}, status=404)
+
+        # 2. Filter SiteParametre for this TypeParametre
+            qs = SiteParametre.objects.filter(typeParametre=temp_param)
+
+        # Current and last year
+            current_year = datetime.now().year
+            last_year = current_year - 1
+
+        # 3. Aggregate by month for this year
+            this_year_data = (
+                qs.filter(date_heure__year=current_year)
+                .annotate(month=ExtractMonth("date_heure"))
+                .values("month")
+                .annotate(moy=Avg("valeur"))
+            )
+
+        # 4. Aggregate by month for last year
+            last_year_data = (
+                qs.filter(date_heure__year=last_year)
+                .annotate(month=ExtractMonth("date_heure"))
+                .values("month")
+                .annotate(moy=Avg("valeur"))
+            )
+
+        # Convert to dicts for quick lookup
+            this_year_dict = {item["month"]: item["moy"] for item in this_year_data}
+            last_year_dict = {item["month"]: item["moy"] for item in last_year_data}
+
+                # Month names
+            months = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ]
+
+        # 5. Build response structure
+            results = []
+            for i, month_name in enumerate(months, start=1):
+                results.append({
+                    "month": month_name,
+                    "this_year": this_year_dict.get(i, 0),
+                    "last_year": last_year_dict.get(i, 0),
+                })
+            
+            # Send as SSE
+            yield f"data: {json.dumps(results)}\n\n"
+            time.sleep(5)  
+    return StreamingHttpResponse(event_stream(), content_type="text/event-stream")

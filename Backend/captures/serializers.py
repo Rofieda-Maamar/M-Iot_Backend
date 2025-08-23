@@ -1,9 +1,6 @@
 from rest_framework import serializers 
-<<<<<<< HEAD
 from .models import TypeParametre , CaptureSite , TypeParametre , TagRfid, ObjectTracking, TrackingPoint, PathTemplate, PathTemplatePoint, MesseurTracking , PositionHistorique
-=======
 from .models import *
->>>>>>> Rofieda
 from rest_framework.exceptions import ValidationError
 from django_tenants.utils import schema_context
 from .services import GeolocationService
@@ -53,11 +50,9 @@ class TagRfidSerializer(serializers.ModelSerializer) :
 
     class Meta : 
         model = TagRfid
-<<<<<<< HEAD
         fields = ['site' ,'num_serie' , 'type' ,'date_install']
 
 
-# Serializers pour la planification de trajet
 class TrackingPointSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrackingPoint
@@ -630,7 +625,6 @@ class TrajetListSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(f'/api/captures/trajet-historique/{obj.id}/')
         return f'/api/captures/trajet-historique/{obj.id}/'
-=======
         fields = ['site' ,'num_serie' , 'type' ,'date_install' ,'ObjectTracking','categorie']
 
     def create(self, validated_data):
@@ -662,4 +656,3 @@ class RealtimeParametreSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteParametre
         fields = ['nom', 'unite', 'valeur_max', 'valeur', 'date_heure']
->>>>>>> Rofieda

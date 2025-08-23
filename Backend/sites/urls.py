@@ -8,5 +8,6 @@ urlpatterns = [
     path('update-site/<int:pk>/', UpdateSiteDetail.as_view(), name='update_site'),
     path('captures-site/<int:pk>/', SiteCapturesDisplayView.as_view(), name='update_site'),
     path('upload-sites/', SiteUploadView.as_view(), name='update_site'),
+    path('graph-sites/', Temperature_stats_stream, name='graph-sites'),
 
 ]

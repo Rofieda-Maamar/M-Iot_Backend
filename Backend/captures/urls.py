@@ -1,20 +1,10 @@
 from django.urls import path
-<<<<<<< HEAD
-from .views import (CreateTagRfidView, UploadTagRfidUserView, 
-                   PlanifierTrajetView, TrackingPointListView, 
-                   ObjectTrackingListView, PathTemplateListView, 
-                   ObjectTrackingNamesView, GeocodeAddressView,
-                   ReverseGeocodeView, SearchPlacesView, TrajetListView,
-                   TrajetHistoriqueView, UpdatePositionRealTimeView,
-                   trajet_sse_stream, trajet_stream_all ,CheckObjetStatusView)
-=======
 from .views import *
->>>>>>> Rofieda
+
 
 urlpatterns = [
     path('add-tag-rfid/', CreateTagRfidView.as_view(), name='add-tag-rfid'),
     path('upload-tag-rfid/', UploadTagRfidUserView.as_view(), name='upload-tag-rfid'),
-<<<<<<< HEAD
     
     # URLs pour la planification de trajet
     path('tracking-points/', TrackingPointListView.as_view(), name='tracking-points-list'),
@@ -42,8 +32,6 @@ urlpatterns = [
     path('geocode/', GeocodeAddressView.as_view(), name='geocode-address'),
     path('reverse-geocode/', ReverseGeocodeView.as_view(), name='reverse-geocode'),
     path('search-places/', SearchPlacesView.as_view(), name='search-places'),
-=======
     path('list-tag-rfid/', ListTagRfidView.as_view(), name='list-tag-rfid'),
     path('sse/realtime-parametre/', sse_realtime_parametre, name='sse_realtime_parametre'),
->>>>>>> Rofieda
 ]
