@@ -54,7 +54,6 @@ class TagRfidSerializer(serializers.ModelSerializer) :
         fields = ['site' ,'num_serie' , 'type' ,'date_install']
 
 
-# Serializers pour la planification de trajet
 class TrackingPointSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrackingPoint

@@ -79,3 +79,10 @@ class SitePositionSerializer(serializers.ModelSerializer) :
     class Meta : 
         model = Site
         fields = ['latitude' , 'longitude']
+
+
+
+class TemperatureStatsSerializer(serializers.Serializer):
+    month = serializers.CharField()
+    this_year = serializers.FloatField()
+    last_year = serializers.FloatField()

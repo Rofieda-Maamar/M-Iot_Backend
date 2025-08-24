@@ -37,7 +37,6 @@ from django.http import StreamingHttpResponse
 import json
 from django.db.models import Max
 
-
 class CreateTagRfidView (generics.CreateAPIView) : 
     serializer_class = TagRfidSerializer
 

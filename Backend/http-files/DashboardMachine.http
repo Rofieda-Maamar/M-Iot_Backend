@@ -1,0 +1,13 @@
+
+### 
+GET http://rofieda.lvh.me:8000/api/machine/machine-dashboard/3/
+
+
+### 1 machine id 
+
+
+GET http://rofieda.lvh.me:8000/api/machine/machine/last-values/1/ 
+
+
+### to test real time data for the last values //// 1 is the machine id 
+curl -N http://rofieda.lvh.me:8000/api/machine/machine/last-values/1/

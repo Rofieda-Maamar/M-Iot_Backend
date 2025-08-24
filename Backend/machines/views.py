@@ -27,6 +27,11 @@ from datetime import datetime
 from dateutil import parser as date_parser
 from django.shortcuts import get_object_or_404
 from sites.models import * 
+from django.db.models import OuterRef, Subquery
+from django.http import StreamingHttpResponse
+import time
+import json
+
 
 
 class AllCaptureMachinesView(APIView):
@@ -290,3 +295,79 @@ class MachineUploadView(APIView):
             return datetime.now().isoformat() if pd.isna(dt) else dt.isoformat()
         except Exception:
             return datetime.now().isoformat()
+
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ dashboard  Machine views ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
+
+
+class MachineDashboardView(generics.RetrieveAPIView) :
+    queryset = Machine.objects.all()
+    serializer_class = MachineDashboardSerializer
+
+
+
+class MachineCapturesLastValuesSSEView(APIView):
+    """
+    SSE endpoint: streams latest capture values for a machine continuously.
+    """
+    PARAM_NAMES = [ # a fixed list of all possible parameters. Used to 
+        #ensure every capture has the same fields, even if some parameters dont exist for that capture
+        'temperateur', 'luminosite', 'humidite',
+        'vibration', 'voltage', 'pression', 'amperage'
+    ]
+
+    def get(self, request, machine_id):
+        # fetch the machine by its id 
+        try:
+            machine = Machine.objects.get(id=machine_id)
+        except Machine.DoesNotExist:
+            return StreamingHttpResponse(
+                'data: {"error": "Machine not found"}\n\n',
+                content_type='text/event-stream',
+                status=404
+            )
+
+        def event_stream(): 
+            while True: # Infinite loop: keeps the connection open and sends updates repeatedly.
+                #a Subquery returns the latest timestamp for the current capture.
+                last_time_subq = Subquery( 
+                    MachineParametre.objects
+                        .filter(parametre__captureMachine=OuterRef('pk')) # all MachineParametre objects whose parametre belongs to this capture
+                        .order_by('-date_heure') # Orders the records from newest to oldest.
+                        .values('date_heure')[:1] # Only pick the latest timestamp (date_heure)
+                )
+                captures_qs = CaptureMachine.objects.filter(machine=machine).annotate(
+                    last_read_time=last_time_subq # After this annotation, each CaptureMachine object now has a .last_read_time property, which is the most recent measurement time among all its parameters.
+                )
+                # Subquery to fetch latest value for each Parametre.
+                latest_val_subq = Subquery(
+                    MachineParametre.objects
+                        .filter(parametre=OuterRef('pk'))
+                        .order_by('-date_heure')
+                        .values('valeur')[:1]
+                )
+
+                # build the result for each capture 
+                results = []
+                for capture in captures_qs:
+                    params_qs = Parametre.objects.filter(captureMachine=capture).annotate(latest_val=latest_val_subq)
+                    param_values = {name: "-" for name in self.PARAM_NAMES} #Initialize all parameters to "-" first.
+                    for p in params_qs:
+                        param_values[p.nom] = p.latest_val if p.latest_val is not None else "-"
+
+                        #temps is the last recorded time for the capture.
+                    temps = capture.last_read_time.isoformat() if capture.last_read_time else None
+                    #out combines the capture info + latest values for all parameters.
+                    out = {"num_serie": capture.num_serie, "temps": temps}
+                    out.update(param_values)
+                    results.append(out) # Append to results list.
+
+                # Send result to client via sse 
+                yield f"data: {json.dumps(results)}\n\n"
+
+                # Wait before sending next update
+                time.sleep(5)  
+
+        return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
