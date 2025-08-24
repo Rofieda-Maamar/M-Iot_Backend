@@ -9,4 +9,7 @@ urlpatterns = [
     path('all-capture-machines/', AllCaptureMachinesView.as_view(), name='all_capture_machines'),
     path('search-capture-machine/', CaptureMachineSearchView.as_view(), name='search-capture-machine'),
     path('machine-detail/', DisplayMachineDetailView.as_view(), name='search-capture-machine'),
+    path('machine-dashboard/<int:pk>/', MachineDashboardView.as_view(), name='machine-dashboard'),
+    path('machine/last-values/<int:machine_id>/', MachineCapturesLastValuesSSEView.as_view(), name='machine-last-captures'),
+
 ]
