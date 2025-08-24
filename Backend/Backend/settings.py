@@ -60,7 +60,7 @@ SHARED_APPS = [
     'django_extensions',
     'rest_framework',
     'django_rest_passwordreset',
-     'django_filters',
+    'django_filters',
    
 
 ]
@@ -249,7 +249,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
