@@ -1,5 +1,6 @@
 from rest_framework import serializers 
 from .models import TypeParametre , CaptureSite , TypeParametre , TagRfid, ObjectTracking, TrackingPoint, PathTemplate, PathTemplatePoint, MesseurTracking , PositionHistorique
+
 from .models import *
 from rest_framework.exceptions import ValidationError
 from django_tenants.utils import schema_context
@@ -625,6 +626,7 @@ class TrajetListSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(f'/api/captures/trajet-historique/{obj.id}/')
         return f'/api/captures/trajet-historique/{obj.id}/'
+
         fields = ['site' ,'num_serie' , 'type' ,'date_install' ,'ObjectTracking','categorie']
 
     def create(self, validated_data):
