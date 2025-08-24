@@ -7,7 +7,6 @@ from sites.models import Site
 import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
-<<<<<<< HEAD
 import time  
 from .serializers import (TagRfidSerializer, PlanifierTrajetSerializer, 
                          TrackingPointSerializer, ObjectTrackingSerializer, 
@@ -27,7 +26,7 @@ import random
 from django.utils import timezone
 from django.db import models
         
-=======
+
 # Create your views here.
 from .serializers import *
 from rest_framework import generics
@@ -38,7 +37,6 @@ from django.http import StreamingHttpResponse
 import json
 from django.db.models import Max
 
->>>>>>> Rofieda
 
 class CreateTagRfidView (generics.CreateAPIView) : 
     serializer_class = TagRfidSerializer
@@ -140,7 +138,6 @@ class UploadTagRfidUserView(APIView):
         if errors:
             return Response({"created": created_tags, "errors": errors}, status=status.HTTP_207_MULTI_STATUS)
         return Response({"created": created_tags}, status=status.HTTP_201_CREATED)
-<<<<<<< HEAD
 
 
 # Nouvelles vues pour la planification de trajet
@@ -2868,7 +2865,6 @@ class CheckObjetStatusView(APIView):
             return Response({
                 'error': f'Erreur lors de la vérification: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-=======
     
 
 def sse_realtime_parametre(request):
@@ -2938,4 +2934,3 @@ class ListTagRfidView(generics.ListAPIView) :
             queryset = TagRfid.objects.filter(site_id=site_id)
             serializer = self.get_serializer(queryset , many = True)
             return Response(serializer.data)
->>>>>>> Rofieda
