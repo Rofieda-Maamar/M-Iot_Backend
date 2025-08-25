@@ -2076,7 +2076,7 @@ class UpdatePositionRealTimeView(APIView):
         cache.set("sse_update_all", json.dumps(data), 300)
 class UpdatePositionRealTimeView7(APIView):
     def post(self, request):
-        print(f"🎯 CLASSE UTILISÉE: {self.__class__.__name__}")
+        print(f"CLASSE UTILISÉE: {self.__class__.__name__}")
         
         tag_num_serie = request.data.get('tag_rfid_num_serie')
         latitude = request.data.get('latitude')
@@ -2115,16 +2115,16 @@ class UpdatePositionRealTimeView7(APIView):
             
             # Si plusieurs trajets trouvés, choisir celui avec l'ID PathTemplate le plus petit
             if messeurs_candidats.count() > 1:
-                print(f"🔍 Plusieurs trajets trouvés pour le tag {tag_num_serie}:")
+                print(f" Plusieurs trajets trouvés pour le tag {tag_num_serie}:")
                 for m in messeurs_candidats:
                     print(f"   - MesseurTracking ID: {m.id}, PathTemplate ID: {m.path.id}, Date: {m.date_debut}")
                 
                 # Trier par ID de PathTemplate croissant et prendre le premier
                 messeur = messeurs_candidats.order_by('path__id').first()
-                print(f"✅ Trajet sélectionné: PathTemplate ID {messeur.path.id} (le plus petit)")
+                print(f" Trajet sélectionné: PathTemplate ID {messeur.path.id} (le plus petit)")
             else:
                 messeur = messeurs_candidats.first()
-                print(f"✅ Un seul trajet trouvé: PathTemplate ID {messeur.path.id}")
+                print(f" Un seul trajet trouvé: PathTemplate ID {messeur.path.id}")
             
             # Sauvegarder l'ancienne position actuelle AVANT de la modifier
             previous_lieu = messeur.lieu
@@ -2157,7 +2157,7 @@ class UpdatePositionRealTimeView7(APIView):
                 try:
                     year, month, day = map(int, date_str.split('-'))
                     new_date = date(year, month, day)
-                    print(f"✅ Date créée: {new_date}")
+                    print(f" Date créée: {new_date}")
                 except ValueError as e:
                     return Response({
                         'error': f'Date invalide: {date_str} - {str(e)}',
@@ -2187,7 +2187,7 @@ class UpdatePositionRealTimeView7(APIView):
                     # CRÉER L'HEURE SOUS FORME DE STRING POUR ÉVITER CONVERSIONS
                     # ============================================================
                     new_heure_str = f"{hour:02d}:{minute:02d}:{second:02d}"
-                    print(f"✅ Heure en string: {new_heure_str}")
+                    print(f" Heure en string: {new_heure_str}")
                     
                 except ValueError as e:
                     return Response({
@@ -2204,10 +2204,10 @@ class UpdatePositionRealTimeView7(APIView):
                 from django.utils import timezone as django_timezone
                 new_datetime = django_timezone.make_aware(new_datetime_simple, timezone=django_timezone.utc)
                 
-                print(f"✅ DateTime final: {new_datetime}")
+                print(f" DateTime final: {new_datetime}")
                 
             except Exception as e:
-                print(f"❌ Erreur parsing: {str(e)}")
+                print(f" Erreur parsing: {str(e)}")
                 return Response({
                     'error': f'Erreur parsing timestamp: {str(e)}',
                     'timestamp_recu': timestamp,
@@ -2280,32 +2280,32 @@ class UpdatePositionRealTimeView7(APIView):
                 ).order_by('timestamp').first()
                 
                 if premiere_entree and premiere_entree.date_entree:
-                    # ✅ CALCUL DE LA VRAIE DURÉE : nouveau temps - première entrée
+                    #  CALCUL DE LA VRAIE DURÉE : nouveau temps - première entrée
                     duree_dans_lieu = new_datetime - premiere_entree.date_entree
                     
                     # Obtenir le nombre total de secondes
                     total_seconds = int(duree_dans_lieu.total_seconds())
                     
-                    # ✅ PAS DE LIMITATION - CALCULER LA VRAIE DURÉE
+                    #  PAS DE LIMITATION - CALCULER LA VRAIE DURÉE
                     if total_seconds < 0:
                         # Si la durée est négative, réinitialiser
                         messeur.duree_passage = "00:00:00"
-                        print("⚠️ Durée négative détectée, réinitialisée à 00:00:00")
+                        print(" Durée négative détectée, réinitialisée à 00:00:00")
                     else:
                         # Calculer heures, minutes, secondes SANS limitation
                         heures = total_seconds // 3600
                         minutes = (total_seconds % 3600) // 60
                         secondes = total_seconds % 60
                         
-                        # ✅ AUTORISER LES DURÉES > 24H (ex: 25:30:45, 100:15:30, etc.)
+                        #  AUTORISER LES DURÉES > 24H (ex: 25:30:45, 100:15:30, etc.)
                         messeur.duree_passage = f"{heures:02d}:{minutes:02d}:{secondes:02d}"
-                        print(f"✅ Durée réelle calculée: {messeur.duree_passage} ({total_seconds} secondes total)")
+                        print(f" Durée réelle calculée: {messeur.duree_passage} ({total_seconds} secondes total)")
                 else:
                     messeur.duree_passage = "00:00:00"
             else:
                 # L'objet a changé de lieu - commencer un nouveau compteur
                 messeur.duree_passage = "00:00:00"
-                print("🔄 Changement de lieu détecté - durée réinitialisée")
+                print(" Changement de lieu détecté - durée réinitialisée")
             
             # LOGIQUE ÉTAT DE L'OBJET
             objet = messeur.object_tracking
@@ -2350,26 +2350,26 @@ class UpdatePositionRealTimeView7(APIView):
                 with connection.cursor() as cursor:
                     duree_str = str(messeur.duree_passage) if messeur.duree_passage else "00:00:00"
                     
-                    # ✅ VALIDATION ET GESTION DES DURÉES > 24H
+                    #  VALIDATION ET GESTION DES DURÉES > 24H
                     duree_parts = duree_str.split(':')
                     if len(duree_parts) == 3:
                         heures_int = int(duree_parts[0])
                         
                         if heures_int >= 24:
                             # PostgreSQL TIME ne supporte pas > 23:59:59
-                            print(f"⚠️  Durée > 24h détectée: {duree_str}")
+                            print(f"  Durée > 24h détectée: {duree_str}")
                             
                             # Convertir en format descriptif pour les notes
                             jours = heures_int // 24
                             heures_restantes = heures_int % 24
                             
                             duree_descriptive = f"{jours}j {heures_restantes:02d}:{duree_parts[1]}:{duree_parts[2]}"
-                            print(f"✅ Format descriptif: {duree_descriptive}")
+                            print(f" Format descriptif: {duree_descriptive}")
                             
                             # Pour la base de données, utiliser la durée modulo 24h + note
                             duree_pour_db = f"{heures_restantes:02d}:{duree_parts[1]}:{duree_parts[2]}"
                             
-                            # ✅ VÉRIFIER SI LA COLONNE 'notes' EXISTE
+                            #  VÉRIFIER SI LA COLONNE 'notes' EXISTE
                             cursor.execute("""
                                 SELECT column_name FROM information_schema.columns 
                                 WHERE table_name = 'captures_messeurtracking' AND column_name = 'notes'
@@ -2438,13 +2438,13 @@ class UpdatePositionRealTimeView7(APIView):
                             messeur.id
                         ])
 
-                print(f"✅ Sauvegarde avec durée réelle: {duree_response if 'duree_response' in locals() else duree_str}")
+                print(f" Sauvegarde avec durée réelle: {duree_response if 'duree_response' in locals() else duree_str}")
                 
                 # Recharger l'objet
                 messeur.refresh_from_db()
                 
             except Exception as sql_error:
-                print(f"❌ Erreur raw SQL: {sql_error}")
+                print(f" Erreur raw SQL: {sql_error}")
                 return Response({
                     'error': f'Erreur sauvegarde SQL: {str(sql_error)}',
                     'debug': {
