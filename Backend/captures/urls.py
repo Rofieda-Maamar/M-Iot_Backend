@@ -1,4 +1,9 @@
 from django.urls import path
+
+
+from .views import *
+
+
 from .views import (CreateTagRfidView, UploadTagRfidUserView, 
                    PlanifierTrajetView, TrackingPointListView, 
                    ObjectTrackingListView, PathTemplateListView, 
@@ -6,6 +11,7 @@ from .views import (CreateTagRfidView, UploadTagRfidUserView,
                    ReverseGeocodeView, SearchPlacesView, TrajetListView,
                    TrajetHistoriqueView, UpdatePositionRealTimeView,
                    trajet_sse_stream, trajet_stream_all ,CheckObjetStatusView)
+from .views import *
 
 urlpatterns = [
     path('add-tag-rfid/', CreateTagRfidView.as_view(), name='add-tag-rfid'),
@@ -37,4 +43,7 @@ urlpatterns = [
     path('geocode/', GeocodeAddressView.as_view(), name='geocode-address'),
     path('reverse-geocode/', ReverseGeocodeView.as_view(), name='reverse-geocode'),
     path('search-places/', SearchPlacesView.as_view(), name='search-places'),
+
+    path('list-tag-rfid/', ListTagRfidView.as_view(), name='list-tag-rfid'),
+    path('sse/realtime-parametre/', sse_realtime_parametre, name='sse_realtime_parametre'),
 ]

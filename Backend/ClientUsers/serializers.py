@@ -39,7 +39,8 @@ class ClientUserSerializer(serializers.ModelSerializer):
                 role ='userCllient',
                 telephone= telephone
             )
-            user.set_password(password)
+            
+            user.set_password(password) 
             user.save()
             # creat the client user and link it to the created user
             client_user = ClientUser.objects.create(

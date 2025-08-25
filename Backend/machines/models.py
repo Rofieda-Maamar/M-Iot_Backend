@@ -34,7 +34,7 @@ class Parametre(models.Model) :
         ('amperage' , 'amperage')
     ]
     captureMachine = models.ForeignKey(CaptureMachine , on_delete=models.CASCADE , related_name='parametre')  
-    nom        = models.CharField(max_length=50)
+    nom        = models.CharField(max_length=50 , choices=nom_choices)
     unite      = models.CharField(max_length=20)
     valeur_max = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 

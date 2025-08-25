@@ -60,12 +60,11 @@ SHARED_APPS = [
     'django_extensions',
     'rest_framework',
     'django_rest_passwordreset',
-     'django_filters',
+    'django_filters',
    
 
 ]
 
-AUTH_USER_MODEL = "users.User"
 SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
 
 TENANT_APPS = [
@@ -250,7 +249,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
@@ -271,3 +270,16 @@ CSRF_TRUSTED_ORIGINS = [
 
 samesite="None"
 secure=True
+
+# MQTT Configuration : 
+
+MQTT = {
+    "BROKER_HOST": "broker.emqx.io",     # free public broker (for testing)
+    "BROKER_PORT": 1883,
+    "USERNAME": None,                    # optional -> set if you use a private broker
+    "PASSWORD": None,
+    "BASE_TOPIC": "m-iot", 
+    "TOPIC": "m-iot/+/+/+",          # wildcard to match {tenant_id}/{site_id}/{parameter}
+    "QOS": 0,
+}
+#can switch to a local broker later by changing BROKER_HOST to localhost

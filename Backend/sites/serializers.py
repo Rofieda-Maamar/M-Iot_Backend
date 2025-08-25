@@ -38,15 +38,19 @@ class SiteSerializer(serializers.ModelSerializer) :
                 #bcs the site isn't inside each capture , so pass the created site object to the capture , bcs it include in each capture the site as fk 
                 capture_serializer.is_valid(raise_exception=True)
                 capture_serializer.save()
-            return site
+            return site 
+    
+    def to_representation(self, instance):
+        return {'site_id' : instance.id}
+
+
 
 
 class SiteDisplaySerializer(serializers.ModelSerializer): 
-    parametre =serializers.SerializerMethodField()
 
     class Meta: 
         model = Site 
-        fields = ['id','nom', 'adresse', 'date_ajout', 'parametre']
+        fields = ['id','nom', 'adresse', 'longitude', 'latitude','asset_tracking']
 
     def get_parametre(self, obj):
         # Get all parametre names for this site
@@ -67,3 +71,18 @@ class SiteCapturesDisplaySerializer (serializers.ModelSerializer) :
     class Meta : 
         model = Site
         fields = ['captures']
+
+
+
+
+class SitePositionSerializer(serializers.ModelSerializer) : 
+    class Meta : 
+        model = Site
+        fields = ['latitude' , 'longitude']
+
+
+
+class TemperatureStatsSerializer(serializers.Serializer):
+    month = serializers.CharField()
+    this_year = serializers.FloatField()
+    last_year = serializers.FloatField()

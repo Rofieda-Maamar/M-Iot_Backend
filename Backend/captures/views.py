@@ -30,6 +30,16 @@ from datetime import datetime, timedelta, time as datetime_time , date
 
               
 
+# Create your views here.
+from .serializers import *
+from rest_framework import generics
+from tenants.models import Client
+from .models import * 
+import time
+from django.http import StreamingHttpResponse
+import json
+from django.db.models import Max
+
 class CreateTagRfidView (generics.CreateAPIView) : 
     serializer_class = TagRfidSerializer
 
@@ -67,7 +77,6 @@ class UploadTagRfidUserView(APIView):
     Upload an Excel file with multiple tag rfids.
     File should have columns: num_serie, date_install, type (passif , actif)
     """
-
     def post(self, request, format=None):
         client_id = request.query_params.get("client_id")
         if not client_id : 
@@ -93,7 +102,7 @@ class UploadTagRfidUserView(APIView):
 
         created_tags = []
         errors = []
-        required_columns = ['date_install', 'type', 'num_serie' ]
+        required_columns = ['date_install', 'type', 'num_serie' ,'categorie' ]
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
@@ -3998,3 +4007,72 @@ class CheckObjetStatusView(APIView):
             return Response({
                 'error': f'Erreur lors de la vérification: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+def sse_realtime_parametre(request):
+    site_id = request.GET.get('site_id')
+    if not site_id:
+        return StreamingHttpResponse("data: []\n\n", content_type='text/event-stream')
+
+    def event_stream():
+        while True:
+            # Get latest SiteParametre for the given site  
+            latest_values = SiteParametre.objects.filter(
+                typeParametre__site_id=site_id
+            ).values('typeParametre').annotate(
+                latest_id=Max('id')
+            )
+
+            latest_ids = [v['latest_id'] for v in latest_values]
+            realtime_data = SiteParametre.objects.filter(id__in=latest_ids)
+
+            data = []
+            for param in realtime_data:
+                data.append({
+                    'nom': param.typeParametre.nom,
+                    'unite': param.typeParametre.unite,
+                    'valeur_max': str(param.typeParametre.valeur_max),
+                    'valeur_courante': param.valeur,
+                    'date_heure': param.date_heure.isoformat(),
+                })
+
+            yield f"data: {json.dumps(data)}\n\n"
+            import time
+            time.sleep(5)  # refresh every 5 seconds
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    return response
+
+
+
+class ListTagRfidView(generics.ListAPIView) : 
+    queryset = TagRfid.objects.all()
+    serializer_class = TagRfidListSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        client_id = self.request.query_params.get("client_id")
+        if not client_id:
+            raise ValidationError("client_id is required to list sites for a tenant.")
+
+        try : 
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist: 
+            raise NotFound("Client with this id was not found")
+        
+        # Add schema name to context
+        context['schema_name'] = client.schema_name
+        return context
+
+    def list(self, request, *args, **kwargs):
+        schema_name = self.get_serializer_context().get('schema_name')
+        site_id = request.query_params.get("site_id")
+
+        if not site_id : 
+            raise ValidationError({"site_id":"required to list machines of this site"})
+
+        with schema_context(schema_name):
+            queryset = TagRfid.objects.filter(site_id=site_id)
+            serializer = self.get_serializer(queryset , many = True)
+            return Response(serializer.data)
