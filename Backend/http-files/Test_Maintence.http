@@ -1,0 +1,97 @@
+
+#la listes de tous les capteurs
+GET http://127.0.0.1:8000/api/machine/all-capture-machines/
+
+###
+# 1. Ajouter une maintenance admin
+POST http://127.0.0.1:8000/api/maintenance/add-maintenance-admin/
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoyLCJjbGllbnRfaWQiOjEsImV4cCI6MTc1ODM4MjgwMH0.ABCDEfgh-456EXAMPLE
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="num_serie"
+
+C-04
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="date_intervention"
+
+2025-08-26
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="type"
+
+Maintenance corrective
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="resume"
+
+Réparation des capteurs avec documentation
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="files"; filename="rapport_maintenance.pdf"
+Content-Type: application/pdf
+
+< C:\Users\ASUS\Desktop\Stage\test_files\rapport_maintenance.pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+###
+# 2. Lister toutes les maintenances admin
+GET http://127.0.0.1:8000/api/maintenance/all-maintenances/
+
+
+###
+
+# 3. Détail d'une maintenance admin
+GET http://127.0.0.1:8000/api/maintenance/detail/CAP-001/1/
+
+
+###
+
+# 4. Rechercher des maintenances admin
+GET http://127.0.0.1:8000/api/maintenance/search/?capteur_num_serie=CAP-001
+###
+
+# tous les machines d'un client
+GET http://rofieda.lvh.me:8000/api/machine/all-machines/
+
+
+###
+# 5. Ajouter une maintenance client AVEC FICHIERS
+POST http://rofieda.lvh.me:8000/api/maintenance/add-maintenance-client/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzU2MjE5OTczLCJpYXQiOjE3NTYyMTk2NzMsImp0aSI6IjFjOTA4OWQ2NTRkMTRlYzY5YjQ2MjlmY2RkZDk1ZDk1IiwidXNlcl9pZCI6IjIifQ.8uKDWTLPuV7QiFT8qlR1qUlGTKW6SrGXsce8P9-3uCE
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="machine_identificateur"
+
+M-125
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="date_intervention"
+
+2025-08-27
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="type"
+
+Maintenance corrective
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="resume"
+
+Réparation des capteurs avec documentation
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="files"
+Content-Type: application/pdf
+
+< C:\Users\ASUS\Downloads\testing_miot_project.pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+###
+
+###
+
+# 6. Lister toutes les maintenances client
+GET http://rofieda.lvh.me:8000/api/maintenance/all-maintenance-client/
+
+
+###
+
+# 7. Détail d'une maintenance client
+GET http://rofieda.lvh.me:8000/api/maintenance/detail-client/M-125/1/
+
+###
+
+

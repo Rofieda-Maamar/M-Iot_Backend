@@ -50,6 +50,44 @@ class AllCaptureMachinesView(APIView):
 
         return Response(all_captures)
 
+class AllMachinesClientView(APIView):
+     
+
+    def get(self, request):
+        """Récupérer toutes les machines du client actuel basé sur le schéma tenant"""
+        
+        try:
+            # Utiliser le schéma actuel (depuis le sous-domaine)
+            current_schema = connection.schema_name
+            print(f"DEBUG MACHINES: Current schema: {current_schema}")
+            
+            # Récupérer toutes les machines dans le schéma actuel
+            machines = Machine.objects.all().order_by('identificateur')
+            
+            # Obtenir le nom de l'entreprise actuelle
+            from tenants.models import Client
+            client_actuel = Client.objects.filter(schema_name=current_schema).first()
+            
+            machines_data = []
+            for machine in machines:
+                machine_info = {
+                    'identificateur': machine.identificateur
+                }
+                machines_data.append(machine_info)
+            
+            return Response({
+                'count': len(machines_data),
+                'entreprise': client_actuel.nom_entreprise if client_actuel else "Entreprise inconnue",
+                'machines': machines_data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            print(f"DEBUG MACHINES: Erreur lors de la récupération: {e}")
+            return Response({
+                "detail": f"Erreur lors de la récupération des machines: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
 
 
 class CaptureMachineSearchView(APIView):
