@@ -51,7 +51,7 @@ Content-Type: application/json
     "tag_rfid_num_serie": "TR005",
     "latitude": 36.7538,
     "longitude": 3.0588,
-    "timestamp": "2025-08-28T15:00:00Z"
+    "timestamp": "2025-08-28 15:00:00"
 }
 
 ### Test position Alger (coordonnées du centre-ville)
@@ -62,7 +62,7 @@ Content-Type: application/json
     "tag_rfid_num_serie": "TR005",
     "latitude": 36.7538,
     "longitude": 3.0588,
-    "timestamp": "2025-08-29T09:00:00Z"
+    "timestamp": "2025-08-29 09:00:00"
 }
 
 ### Test position Oran
@@ -73,7 +73,7 @@ Content-Type: application/json
     "tag_rfid_num_serie": "TR005",
     "latitude": 35.6969,
     "longitude": -0.6331,
-    "timestamp": "2025-08-30T15:30:00Z"
+    "timestamp": "2025-08-30 15:30:00"
 }
 
 ### Test - Rester à Oran (1ère fois) - 10:36
@@ -81,10 +81,10 @@ POST http://rofieda.lvh.me:8000/api/captures/update-position-realtime/ HTTP/1.1
 Content-Type: application/json
 
 {
-    "tag_rfid_num_serie": "TR005",
-    "latitude": 35.7044415,
-    "longitude": -0.6502981,
-    "timestamp": "2025-08-21T10:36:00Z"
+    "tag_rfid_num_serie": "AD",
+    "latitude": 36.803104,
+    "longitude": 2.921698 ,
+    "timestamp": "2025-08-28  10:36:00"
 }
 
 ### Test - Rester à Oran (2ème fois) - 11:36 (durée = 1h)
@@ -95,7 +95,7 @@ Content-Type: application/json
     "tag_rfid_num_serie": "TR005",
     "latitude": 35.7044415,
     "longitude": -0.6502981,
-    "timestamp": "2025-08-21T11:36:00Z"
+    "timestamp": "2025-08-21  11:36:00"
 }
 
 ### Test - Rester à Oran (3ème fois) - 12:36 (durée = 2h)
@@ -106,7 +106,7 @@ Content-Type: application/json
     "tag_rfid_num_serie": "TR005",
     "latitude": 35.7044415,
     "longitude": -0.6502981,
-    "timestamp": "2025-08-21T12:36:00Z"
+    "timestamp": "2025-08-2112:36:00"
 }
 ### Test - Mostaganem
 POST http://rofieda.lvh.me:8000/api/captures/update-position-realtime/ HTTP/1.1
@@ -115,7 +115,7 @@ Content-Type: application/json
     "tag_rfid_num_serie": "TR005",
     "latitude": 35.928808,
     "longitude": 0.089978,
-    "timestamp": "2025-09-01T05:00:00Z"
+    "timestamp": "2025-09-01 05:00:00"
 }
 ### Test - Telemcen
 POST http://rofieda.lvh.me:8000/api/captures/update-position-realtime/ HTTP/1.1
@@ -124,7 +124,7 @@ Content-Type: application/json
     "tag_rfid_num_serie": "TR005",
     "latitude": 34.881789,
     "longitude": -1.316699,
-    "timestamp": "2025-09-06T05:00:00Z"
+    "timestamp": "2025-09-06 05:00:00"
 }
 
 ### Consulter l'historique d'un trajet spécifique (remplacer 1 par l'ID réel)
