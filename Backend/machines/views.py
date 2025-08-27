@@ -31,6 +31,14 @@ from django.db.models import OuterRef, Subquery
 from django.http import StreamingHttpResponse
 import time
 import json
+from django.utils.timezone import now
+
+from django.db.models import Avg
+from django.db.models.functions import ExtractMonth
+from django.utils import timezone
+
+from django.http import StreamingHttpResponse, HttpResponseBadRequest, HttpResponseNotFound
+
 
 
 
@@ -408,3 +416,170 @@ def  MachineCapturesLastValuesSSEView(request , machine_id):
 
     return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
     
+
+
+def machine_params_sse(request, machine_id):
+    """
+    SSE endpoint that streams last values of parameters for all captures of a given machine.
+    """
+
+    def event_stream():
+        while True:
+            #  Get captures of this machine
+            captures = CaptureMachine.objects.filter(machine_id=machine_id)
+
+            # Subquery to get last MachineParametre value for each parametre
+            last_value_subquery = MachineParametre.objects.filter(
+                parametre=OuterRef("pk")
+            ).order_by("-date_heure").values("valeur")[:1]
+
+            #  Build the response
+            data = []
+            for capture in captures:
+                params = Parametre.objects.filter(captureMachine=capture).annotate(
+                    last_valeur=Subquery(last_value_subquery)
+                )
+                for p in params:
+                    data.append({
+                        "capture_id": capture.id,
+                        "parametre_nom": p.nom,
+                        "unite": p.unite,
+                        "val_max" : p.valeur_max ,
+                        "last_valeur": p.last_valeur,
+                    })
+
+            # --- Step 4: Send as SSE event
+            yield f"data: {json.dumps(data, default=str)}\n\n"
+
+            time.sleep(2)  # stream every 2 seconds
+
+    response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    return response
+
+
+
+
+def machine_temperature_stats_stream(request):
+    """
+    SSE endpoint that:
+    - expects ?machine_id=<id>
+    - checks machine exists and has captures
+    - selects captures that have Parametre(s) with nom='temperateur'
+    - for each such capture, computes monthly avg for current year and last year
+    - streams JSON every 5 seconds
+    """
+    machine_id = request.GET.get("machine_id")
+    if not machine_id:
+        return HttpResponseBadRequest(
+            json.dumps({"error": "machine_id is required"}),
+            content_type="application/json",
+        )
+
+    #  Check machine existence
+    try:
+        machine = Machine.objects.get(pk=machine_id)
+    except Machine.DoesNotExist:
+        return HttpResponseNotFound(
+            json.dumps({"error": "Machine not found"}),
+            content_type="application/json",
+        )
+
+    #  Check machine has captures
+    if not machine.captures.exists():
+        return HttpResponseNotFound(
+            json.dumps({"error": "This machine has no captures"}),
+            content_type="application/json",
+        )
+
+    #  Find Parametre objects linked to captures of this machine with nom 'temperateur'
+    # -> use case-insensitive comparison to avoid mismatch
+    temp_params_qs = Parametre.objects.filter(captureMachine__machine=machine, nom__iexact="temperature")
+
+    if not temp_params_qs.exists():
+        return HttpResponseNotFound(
+            json.dumps({"error": "No captures with a 'temperateur' parameter for this machine"}),
+            content_type="application/json",
+        )
+
+    #  Ensure there is at least one MachineParametre measurement for current or last year
+    current_year = timezone.now().year
+    last_year = current_year - 1
+
+    has_values = MachineParametre.objects.filter(
+        parametre__in=temp_params_qs,
+        date_heure__year__in=(current_year, last_year)
+    ).exists()
+
+    if not has_values:
+        return HttpResponseNotFound(
+            json.dumps(
+                {
+                    "error": "No temperature measurements found for this machine "
+                             f"for years {last_year} or {current_year}"
+                }
+            ),
+            content_type="application/json",
+        )
+
+    def _to_number_or_none(v):
+        if v is None:
+            return None
+        try:
+            return float(round(v, 2))
+        except Exception:
+            return None
+        
+    # SSE generator
+    def event_stream():
+        months = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ]
+
+        while True:
+            cy = timezone.now().year
+            ly = cy - 1
+
+            # Query agrégée pour l'année courante (moyenne par mois)
+            this_year_qs = (
+                MachineParametre.objects
+                .filter(parametre__in=temp_params_qs, date_heure__year=cy)
+                .annotate(month=ExtractMonth("date_heure"))
+                .values("month")
+                .annotate(moy=Avg("valeur"))
+                .order_by("month")
+            )
+            last_year_qs = (
+                MachineParametre.objects
+                .filter(parametre__in=temp_params_qs, date_heure__year=ly)
+                .annotate(month=ExtractMonth("date_heure"))
+                .values("month")
+                .annotate(moy=Avg("valeur"))
+                .order_by("month")
+            )
+
+            this_year_dict = {item["month"]: item["moy"] for item in this_year_qs}
+            last_year_dict = {item["month"]: item["moy"] for item in last_year_qs}
+
+            # Construire la liste finale  : un objet par mois
+            months_payload = []
+            for m in range(1, 13):
+                months_payload.append({
+                    "month": months[m - 1],
+                    "this-year": _to_number_or_none(this_year_dict.get(m)),
+                    "last-year": _to_number_or_none(last_year_dict.get(m)),
+                })
+
+            response_obj = {
+                "data": months_payload
+            }
+
+            yield f"data: {json.dumps(response_obj, default=str)}\n\n"
+
+            time.sleep(5)
+
+    response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response
