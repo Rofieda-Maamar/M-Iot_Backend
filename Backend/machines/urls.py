@@ -11,5 +11,6 @@ urlpatterns = [
     path('machine-detail/', DisplayMachineDetailView.as_view(), name='search-capture-machine'),
     path('machine-dashboard/<int:pk>/', MachineDashboardView.as_view(), name='machine-dashboard'),
     path('machine/last-values/<int:machine_id>/', MachineCapturesLastValuesSSEView, name='machine-last-captures'),
+    path('machine/sse-param/<int:machine_id>/', machine_params_sse, name='machine-last-captures'),
 
 ]

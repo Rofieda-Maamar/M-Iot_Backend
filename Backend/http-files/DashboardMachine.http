@@ -11,3 +11,10 @@ GET http://rofieda.lvh.me:8000/api/machine/machine/last-values/1/
 
 ### to test real time data for the last values //// 1 is the machine id 
 curl -N http://rofieda.lvh.me:8000/api/machine/machine/last-values/1/
+
+
+
+GET http://rofieda.lvh.me:8000/api/machine/machine/sse-param/1/
+
+#id machine 
+curl -N http://rofieda.lvh.me:8000/api/machine/machine/sse-param/1/

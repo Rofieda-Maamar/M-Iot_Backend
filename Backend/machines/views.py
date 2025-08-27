@@ -370,3 +370,43 @@ def  MachineCapturesLastValuesSSEView(request , machine_id):
 
     return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
     
+
+
+def machine_params_sse(request, machine_id):
+    """
+    SSE endpoint that streams last values of parameters for all captures of a given machine.
+    """
+
+    def event_stream():
+        while True:
+            #  Get captures of this machine
+            captures = CaptureMachine.objects.filter(machine_id=machine_id)
+
+            # Subquery to get last MachineParametre value for each parametre
+            last_value_subquery = MachineParametre.objects.filter(
+                parametre=OuterRef("pk")
+            ).order_by("-date_heure").values("valeur")[:1]
+
+            #  Build the response
+            data = []
+            for capture in captures:
+                params = Parametre.objects.filter(captureMachine=capture).annotate(
+                    last_valeur=Subquery(last_value_subquery)
+                )
+                for p in params:
+                    data.append({
+                        "capture_id": capture.id,
+                        "parametre_nom": p.nom,
+                        "unite": p.unite,
+                        "val_max" : p.valeur_max ,
+                        "last_valeur": p.last_valeur,
+                    })
+
+            # --- Step 4: Send as SSE event
+            yield f"data: {json.dumps(data, default=str)}\n\n"
+
+            time.sleep(2)  # stream every 2 seconds
+
+    response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    return response
