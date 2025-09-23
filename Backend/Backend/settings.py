@@ -141,13 +141,14 @@ BASE_URL = 'localhost'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": "miotbdd_w1bi",
+        "NAME": "miotbdd_w1b",
         "USER": "miotbdd",
-        "PASSWORD": "TNmNaejVyVJma5VLLDI2z9aBoRpyrjTN",
-        "HOST": "dpg-d2gd6ov5r7bs73ev6vb0-a.oregon-postgres.render.com",
+        "PASSWORD": "SJ93dT0CGgdKGguuczvbyHFKWSZu5YKG",
+        "HOST": "dpg-d37vqpbuibrs739df8kg-a.oregon-postgres.render.com",
         "PORT": "5432",
     }
 }
